@@ -4,7 +4,7 @@ import "@/global.css";
 
 import { useState, useEffect, StrictMode } from "react";
 import { supabase } from "@/src/lib/supabase-client";
-import Auth from "@/src/navigation/screens/Auth";
+import Auth from "@/src/navigation/screens/AuthSignIn";
 import { View, Text } from "react-native";
 import { Session } from "@supabase/supabase-js";
 import ManagerCrud from "@/src/navigation/screens/ManagerCrud";

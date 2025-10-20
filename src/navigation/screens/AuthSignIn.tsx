@@ -1,6 +1,9 @@
 import React, { useState } from "react";
-import { Alert, StyleSheet, View, Text, TextInput, Button } from "react-native";
+import { Alert, StyleSheet, View } from "react-native";
 import { supabase } from "../../lib/supabase-client";
+import { Button, ButtonText, ButtonIcon } from "../../components/ui/button";
+import { Input, InputField } from "../../components/ui/input";
+import { Text } from "../../components/ui/text";
 
 export default function Auth() {
   const [email, setEmail] = useState("");
@@ -18,59 +21,61 @@ export default function Auth() {
     setLoading(false);
   }
 
-  async function signUpWithEmail() {
-    setLoading(true);
-    const {
-      data: { session },
-      error,
-    } = await supabase.auth.signUp({
-      email: email,
-      password: password,
-    });
-
-    if (error) Alert.alert(error.message);
-    if (!session)
-      Alert.alert("Please check your inbox for email verification!");
-    setLoading(false);
-  }
-
   return (
     <View style={styles.container}>
       <View style={[styles.verticallySpaced, styles.mt20]}>
         <Text style={styles.label}>Email</Text>
-        <TextInput
-          style={styles.input}
-          onChangeText={(text) => setEmail(text)}
-          value={email}
-          placeholder="email@address.com"
-          autoCapitalize="none"
-          keyboardType="email-address"
-        />
+        <Input
+          variant="outline"
+          size="md"
+          isDisabled={false}
+          isInvalid={false}
+          isReadOnly={false}
+        >
+          <InputField
+            style={styles.input}
+            onChangeText={(text) => setEmail(text)}
+            value={email}
+            placeholder="Email"
+            autoCapitalize="none"
+            keyboardType="email-address"
+          />
+        </Input>
       </View>
       <View style={styles.verticallySpaced}>
         <Text style={styles.label}>Password</Text>
-        <TextInput
-          style={styles.input}
-          onChangeText={(text) => setPassword(text)}
-          value={password}
-          secureTextEntry={true}
-          placeholder="Password"
-          autoCapitalize="none"
-        />
+        <Input
+          variant="outline"
+          size="md"
+          isDisabled={false}
+          isInvalid={false}
+          isReadOnly={false}
+        >
+          <InputField
+            style={styles.input}
+            onChangeText={(text) => setEmail(text)}
+            value={email}
+            placeholder="Email"
+            autoCapitalize="none"
+            keyboardType="email-address"
+          />
+        </Input>
       </View>
       <View style={[styles.verticallySpaced, styles.mt20]}>
-        <Button
-          title="Sign in"
-          disabled={loading}
-          onPress={() => signInWithEmail()}
-        />
+        <Button disabled={loading} onPress={() => signInWithEmail()}>
+          <ButtonText>Sign In</ButtonText>
+        </Button>
       </View>
       <View style={styles.verticallySpaced}>
         <Button
-          title="Sign up"
           disabled={loading}
-          onPress={() => signUpWithEmail()}
-        />
+          onPress={() => Alert.alert("Button pressed!")}
+          variant="solid"
+          size="md"
+          action="primary"
+        >
+          <ButtonText>Click me</ButtonText>
+        </Button>
       </View>
     </View>
   );
