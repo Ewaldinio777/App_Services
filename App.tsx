@@ -1,57 +1,35 @@
+import * as React from "react";
 import { StatusBar } from "expo-status-bar";
 import { GluestackUIProvider } from "@/src/components/ui/gluestack-ui-provider";
 import "@/global.css";
 
-import { useState, useEffect, StrictMode } from "react";
-import { supabase } from "@/src/lib/supabase-client";
-import Auth from "@/src/navigation/screens/AuthSignIn";
-import { View, Text } from "react-native";
-import { Session } from "@supabase/supabase-js";
+import { useRef } from "react";
+import { AuthProvider } from "./src/context/AuthContext";
+
+import Auth from "@/src/navigation/screens/Auth";
 import ManagerCrud from "@/src/navigation/screens/ManagerCrud";
+import AuthSignUp from "@/src/navigation/screens/AuthSignUp";
+
+import { NavigationContainer } from "@react-navigation/native";
+import { createNativeStackNavigator } from "@react-navigation/native-stack";
+
+const RootStack = createNativeStackNavigator();
 
 export default function App() {
-  const [session, setSession] = useState<Session | null>(null);
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-    });
-    // Subscribe to auth changes and store the subscription so we can unsubscribe on cleanup
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-    });
-    // Cleanup listener on unmount (good practice)
-    return () => {
-      if (subscription && typeof subscription.unsubscribe === "function") {
-        subscription.unsubscribe();
-      }
-    };
-  }, []);
-  const logout = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      console.error("Logout error:", error);
-      // Optionally show an alert or toast here (e.g., using react-native-toast-message)
-    }
-    // No need to manually update session; the listener handles it
-  };
+  const navigationRef = useRef<any>(null);
 
   return (
     <GluestackUIProvider mode="dark">
-      <View style={{ flex: 1 }}>
-        {session?.user && <Text>User ID: {session.user.id}</Text>}
-        {session ? (
-          <ManagerCrud
-            key={session.user.id}
-            session={session}
-            logout={logout}
-          />
-        ) : (
-          <Auth />
-        )}
-        <StatusBar style="auto" />
-      </View>
+      <AuthProvider navigationRef={navigationRef}>
+        <NavigationContainer ref={navigationRef}>
+          <RootStack.Navigator initialRouteName="Auth">
+            <RootStack.Screen name="Auth" component={Auth} />
+            <RootStack.Screen name="Registrarse" component={AuthSignUp} />
+            <RootStack.Screen name="ManagerCrud" component={ManagerCrud} />
+          </RootStack.Navigator>
+        </NavigationContainer>
+      </AuthProvider>
+      <StatusBar style="auto" />
     </GluestackUIProvider>
   );
 }

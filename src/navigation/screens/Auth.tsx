@@ -1,14 +1,16 @@
 import React, { useState } from "react";
 import { Alert, StyleSheet, View } from "react-native";
 import { supabase } from "../../lib/supabase-client";
-import { Button, ButtonText, ButtonIcon } from "../../components/ui/button";
+import { Button, ButtonText } from "../../components/ui/button";
 import { Input, InputField } from "../../components/ui/input";
 import { Text } from "../../components/ui/text";
+import { useNavigation } from "@react-navigation/native";
 
 export default function Auth() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const navigation = useNavigation();
 
   async function signInWithEmail() {
     setLoading(true);
@@ -19,6 +21,7 @@ export default function Auth() {
 
     if (error) Alert.alert(error.message);
     setLoading(false);
+    // Navigation to ManagerCrud is handled in App.tsx via session change
   }
 
   return (
@@ -53,11 +56,11 @@ export default function Auth() {
         >
           <InputField
             style={styles.input}
-            onChangeText={(text) => setEmail(text)}
-            value={email}
-            placeholder="Email"
+            onChangeText={(text) => setPassword(text)} // Fixed
+            value={password} // Fixed
+            placeholder="Password" // Fixed
+            secureTextEntry={true} // Added for security
             autoCapitalize="none"
-            keyboardType="email-address"
           />
         </Input>
       </View>
@@ -69,12 +72,12 @@ export default function Auth() {
       <View style={styles.verticallySpaced}>
         <Button
           disabled={loading}
-          onPress={() => Alert.alert("Button pressed!")}
+          onPress={() => navigation.navigate("Registrarse")}
           variant="solid"
           size="md"
           action="primary"
         >
-          <ButtonText>Click me</ButtonText>
+          <ButtonText>Registrarse</ButtonText>
         </Button>
       </View>
     </View>
@@ -102,6 +105,7 @@ const styles = StyleSheet.create({
   input: {
     height: 44,
     borderColor: "#ccc",
+    color: "#000",
     borderWidth: 1,
     borderRadius: 4,
     paddingHorizontal: 8,

@@ -1,0 +1,119 @@
+import React, { useState } from "react";
+import { Alert, StyleSheet, View } from "react-native";
+import { supabase } from "../../lib/supabase-client";
+import { Button, ButtonText } from "../../components/ui/button";
+import { Input, InputField } from "../../components/ui/input";
+import { Text } from "../../components/ui/text";
+import { useNavigation } from "@react-navigation/native";
+
+export default function AuthSignUp() {
+  // Renamed for clarity (was Auth)
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const navigation = useNavigation();
+
+  async function signUpWithEmail() {
+    setLoading(true);
+    const {
+      data: { session },
+      error,
+    } = await supabase.auth.signUp({
+      email: email,
+      password: password,
+    });
+
+    if (error) Alert.alert(error.message);
+    if (!session)
+      Alert.alert("Please check your inbox for email verification!");
+    setLoading(false);
+    // Navigation to ManagerCrud is handled in App.tsx via session change
+  }
+
+  return (
+    <View style={styles.container}>
+      <View style={[styles.verticallySpaced, styles.mt20]}>
+        <Text style={styles.label}>Email</Text>
+        <Input
+          variant="outline"
+          size="md"
+          isDisabled={false}
+          isInvalid={false}
+          isReadOnly={false}
+        >
+          <InputField
+            style={styles.input}
+            onChangeText={(text) => setEmail(text)}
+            value={email}
+            placeholder="Email"
+            autoCapitalize="none"
+            keyboardType="email-address"
+          />
+        </Input>
+      </View>
+      <View style={styles.verticallySpaced}>
+        <Text style={styles.label}>Password</Text>
+        <Input
+          variant="outline"
+          size="md"
+          isDisabled={false}
+          isInvalid={false}
+          isReadOnly={false}
+        >
+          <InputField
+            style={styles.input}
+            onChangeText={(text) => setPassword(text)} // Fixed
+            value={password} // Fixed
+            placeholder="Password" // Fixed
+            secureTextEntry={true} // Added
+            autoCapitalize="none"
+          />
+        </Input>
+      </View>
+      <View style={styles.verticallySpaced}>
+        <Button disabled={loading} onPress={() => signUpWithEmail()}>
+          <ButtonText>Sign Up</ButtonText>
+        </Button>
+      </View>
+      <View style={styles.verticallySpaced}>
+        <Button
+          onPress={() => navigation.navigate("Auth")}
+          variant="solid"
+          size="md"
+          action="secondary"
+        >
+          <ButtonText>Already have an account? Sign In</ButtonText>
+        </Button>
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    marginTop: 40,
+    padding: 12,
+  },
+  verticallySpaced: {
+    paddingTop: 4,
+    paddingBottom: 4,
+    alignSelf: "stretch",
+  },
+  mt20: {
+    marginTop: 20,
+  },
+  label: {
+    marginBottom: 6,
+    fontSize: 16,
+    color: "#444",
+  },
+  input: {
+    height: 44,
+    borderColor: "#ccc",
+    color: "#000",
+    borderWidth: 1,
+    borderRadius: 4,
+    paddingHorizontal: 8,
+    backgroundColor: "#fff",
+  },
+});
