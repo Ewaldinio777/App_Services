@@ -1,22 +1,11 @@
 import { useEffect, useState } from "react";
 import { View, Text, Button, TextInput, ScrollView, Alert } from "react-native";
-import { supabase } from "../../lib/supabase-client";
-import { Session } from "@supabase/supabase-js";
-import { useRoute } from "@react-navigation/native";
 import { useAuth } from "../../context/AuthContext";
 
 const ManagerCrud: React.FC = () => {
-  const route = useRoute();
-  const { session } = route.params as {
-    session: Session;
-  };
+  const { session, logout } = useAuth();
 
-  // Add logging for debugging
-  console.log("Route params:", route.params);
-
-  const { logout } = useAuth();
-
-  // Fallback if params aren't set
+  // Fallback if session isn't set
   if (!session) {
     return (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>

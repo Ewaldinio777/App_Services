@@ -11,32 +11,19 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{
   children: React.ReactNode;
-  navigationRef?: React.RefObject<any>;
-}> = ({ children, navigationRef }) => {
+}> = ({ children }) => {
   const [session, setSession] = useState<Session | null>(null);
 
   useEffect(() => {
     // get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session ?? null);
-      if (session) {
-        navigationRef?.current?.navigate("ManagerCrud", { session });
-      }
     });
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session ?? null);
-      if (session) {
-        navigationRef?.current?.navigate("ManagerCrud", { session });
-      } else {
-        // clear stack and go to Auth when signed out
-        navigationRef?.current?.reset?.({
-          index: 0,
-          routes: [{ name: "Auth" }],
-        });
-      }
     });
 
     return () => {
@@ -44,13 +31,12 @@ export const AuthProvider: React.FC<{
         subscription.unsubscribe();
       }
     };
-  }, [navigationRef]);
+  }, []);
 
   const logout = async () => {
     const { error } = await supabase.auth.signOut();
     if (error) console.error("Logout error:", error);
-    setSession(null);
-    navigationRef?.current?.reset?.({ index: 0, routes: [{ name: "Auth" }] });
+    // session will be updated via the onAuthStateChange listener
   };
 
   return (
