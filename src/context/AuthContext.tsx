@@ -18,11 +18,13 @@ export const AuthProvider: React.FC<{
     // get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session ?? null);
+      console.log("AuthContext: initial session:", session);
     });
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log("AuthContext: onAuthStateChange", event, session);
       setSession(session ?? null);
     });
 

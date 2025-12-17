@@ -14,6 +14,7 @@ export default function App() {
 
   function AppNavigator() {
     const { session } = useAuth();
+    console.log("AppNavigator session:", session);
     return session ? <MainTabNavigator /> : <AuthNavigator />;
   }
 

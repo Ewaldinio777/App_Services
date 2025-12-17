@@ -7,7 +7,9 @@ import { Text } from "../../components/ui/text";
 import { useNavigation } from "@react-navigation/native";
 
 export default function AuthSignUp() {
-  // Renamed for clarity (was Auth)
+  // 1. Add State for First and Last Name
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -21,29 +23,59 @@ export default function AuthSignUp() {
     } = await supabase.auth.signUp({
       email: email,
       password: password,
+      options: {
+        // 2. Pass the state variables here
+        data: {
+          first_name: firstName, 
+          last_name: lastName,
+          // You can access this later via supabase.auth.user().user_metadata
+        },
+      },
     });
 
     if (error) Alert.alert(error.message);
     if (!session)
       Alert.alert("Please check your inbox for email verification!");
     setLoading(false);
-    // Navigation to ManagerCrud is handled in App.tsx via session change
   }
 
   return (
     <View style={styles.container}>
+      {/* 3. First Name Input */}
       <View style={[styles.verticallySpaced, styles.mt20]}>
-        <Text style={styles.label}>Email</Text>
-        <Input
-          variant="outline"
-          size="md"
-          isDisabled={false}
-          isInvalid={false}
-          isReadOnly={false}
-        >
+        <Text style={styles.label}>First Name</Text>
+        <Input variant="outline" size="md">
           <InputField
             style={styles.input}
-            onChangeText={(text) => setEmail(text)}
+            onChangeText={setFirstName}
+            value={firstName}
+            placeholder="First Name"
+            autoCapitalize="words" 
+          />
+        </Input>
+      </View>
+
+      {/* 4. Last Name Input */}
+      <View style={styles.verticallySpaced}>
+        <Text style={styles.label}>Last Name</Text>
+        <Input variant="outline" size="md">
+          <InputField
+            style={styles.input}
+            onChangeText={setLastName}
+            value={lastName}
+            placeholder="Last Name"
+            autoCapitalize="words"
+          />
+        </Input>
+      </View>
+
+      {/* Email Input */}
+      <View style={styles.verticallySpaced}>
+        <Text style={styles.label}>Email</Text>
+        <Input variant="outline" size="md">
+          <InputField
+            style={styles.input}
+            onChangeText={setEmail}
             value={email}
             placeholder="Email"
             autoCapitalize="none"
@@ -51,30 +83,28 @@ export default function AuthSignUp() {
           />
         </Input>
       </View>
+
+      {/* Password Input */}
       <View style={styles.verticallySpaced}>
         <Text style={styles.label}>Password</Text>
-        <Input
-          variant="outline"
-          size="md"
-          isDisabled={false}
-          isInvalid={false}
-          isReadOnly={false}
-        >
+        <Input variant="outline" size="md">
           <InputField
             style={styles.input}
-            onChangeText={(text) => setPassword(text)} // Fixed
-            value={password} // Fixed
-            placeholder="Password" // Fixed
-            secureTextEntry={true} // Added
+            onChangeText={setPassword}
+            value={password}
+            placeholder="Password"
+            secureTextEntry={true}
             autoCapitalize="none"
           />
         </Input>
       </View>
+
       <View style={styles.verticallySpaced}>
         <Button disabled={loading} onPress={() => signUpWithEmail()}>
           <ButtonText>Sign Up</ButtonText>
         </Button>
       </View>
+      
       <View style={styles.verticallySpaced}>
         <Button
           onPress={() => navigation.navigate("Auth")}
