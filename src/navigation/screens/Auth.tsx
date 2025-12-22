@@ -72,7 +72,7 @@ export default function Auth() {
       <View style={styles.verticallySpaced}>
         <Button
           disabled={loading}
-          onPress={() => navigation.navigate("Registrarse")}
+          onPress={() => navigation.navigate("Register")}
           variant="solid"
           size="md"
           action="primary"

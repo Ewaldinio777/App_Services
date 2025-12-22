@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { View, Text, Button, TextInput, ScrollView, Alert } from "react-native";
 import { useAuth } from "../../context/AuthContext";
 
-const ManagerCrud: React.FC = () => {
+const Tools: React.FC = () => {
   const { session, logout } = useAuth();
 
   // Fallback if session isn't set
@@ -25,7 +25,7 @@ const ManagerCrud: React.FC = () => {
           margin: 30,
         }}
       >
-        <Text>Pantalla Inicial</Text>
+        <Text>Pantalla Tools</Text>
       </View>
 
       <Button
@@ -45,4 +45,4 @@ const ManagerCrud: React.FC = () => {
   );
 };
 
-export default ManagerCrud;
+export default Tools;

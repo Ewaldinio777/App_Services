@@ -12,7 +12,7 @@ export default function AuthNavigator() {
       screenOptions={{ headerShown: false }}
     >
       <Stack.Screen name="Auth" component={Auth} />
-      <Stack.Screen name="Registrarse" component={AuthSignUp} />
+      <Stack.Screen name="Register" component={AuthSignUp} />
     </Stack.Navigator>
   );
 }

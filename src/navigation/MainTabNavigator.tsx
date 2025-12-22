@@ -1,21 +1,23 @@
 import React from "react";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import ManagerCrud from "./screens/ManagerCrud";
-// import Home from "./screens/Home";
-import { Text } from "react-native";
+import { Ionicons } from '@react-native-vector-icons/ionicons';
+import Servicios from "./screens/Servicios";
+import Chats from "./screens/Chats";
+import Tools from "./screens/Tools";
+import Ordenes from "./screens/Ordenes";
+import Perfil from "./screens/Perfil";
 
 const Tab = createBottomTabNavigator();
 
-function Placeholder({ label }: { label: string }) {
-  return <Text>{label}</Text>;
-}
-
 export default function MainTabNavigator() {
   return (
-    <Tab.Navigator screenOptions={{ headerShown: false }}>
-      {/* <Tab.Screen name="Home" component={Home} /> */}
-      <Tab.Screen name="Manager" component={ManagerCrud} />
-      <Tab.Screen name="Other" children={() => <Placeholder label="Other" />} />
+    <Tab.Navigator>
+      <Tab.Screen options={ { tabBarIcon: ({color, size}) => { return <Ionicons name="search" size={24}/>; }, }} name="Servicios" component={Servicios} />
+      <Tab.Screen options={ { tabBarIcon: ({color, size}) => { return <Ionicons name="chatbubbles" size={24}/>; }, }} name="Chats" component={Chats} />
+      <Tab.Screen options={ { tabBarIcon: ({color, size}) => { return <Ionicons name="construct" size={24}/>; }, }} name="Publicar" component={Tools} />
+      <Tab.Screen options={ { tabBarIcon: ({color, size}) => { return <Ionicons name="list" size={24}/>; }, }} name="Ordenes" component={Ordenes} />
+      <Tab.Screen options={ { tabBarIcon: ({color, size}) => { return <Ionicons name="person" size={24}/>; }, }} name="Perfil" component={Perfil} />
     </Tab.Navigator>
   );
 }
+
