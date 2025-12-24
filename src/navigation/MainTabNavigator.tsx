@@ -1,4 +1,3 @@
-import React from "react";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Ionicons } from '@react-native-vector-icons/ionicons';
 import Servicios from "./screens/Servicios";
@@ -6,12 +5,14 @@ import Chats from "./screens/Chats";
 import Tools from "./screens/Tools";
 import Ordenes from "./screens/Ordenes";
 import Perfil from "./screens/Perfil";
+import React from "react";
+
 
 const Tab = createBottomTabNavigator();
 
 export default function MainTabNavigator() {
   return (
-    <Tab.Navigator>
+    <Tab.Navigator  initialRouteName="Servicios">
       <Tab.Screen options={ { tabBarIcon: ({color, size}) => { return <Ionicons name="search" size={24}/>; }, }} name="Servicios" component={Servicios} />
       <Tab.Screen options={ { tabBarIcon: ({color, size}) => { return <Ionicons name="chatbubbles" size={24}/>; }, }} name="Chats" component={Chats} />
       <Tab.Screen options={ { tabBarIcon: ({color, size}) => { return <Ionicons name="construct" size={24}/>; }, }} name="Publicar" component={Tools} />

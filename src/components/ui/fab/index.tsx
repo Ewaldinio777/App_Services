@@ -173,6 +173,8 @@ type IFabIconProps = React.ComponentPropsWithoutRef<typeof UIFab.Icon> &
   VariantProps<typeof fabIconStyle> & {
     height?: number;
     width?: number;
+    name?: string;
+    color?: string;
   };
 
 const FabIcon = React.forwardRef<
@@ -208,9 +210,10 @@ const FabIcon = React.forwardRef<
       {...props}
       className={fabIconStyle({
         parentVariants: {
-          size: parentSize,
+          size: parentSize as any,
         },
-        size,
+        // cast to any to satisfy tva size union type
+        size: size as any,
         class: className,
       })}
     />
