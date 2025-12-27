@@ -10,6 +10,8 @@ export default function AuthSignUp() {
   // 1. Add State for First and Last Name
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [stateLocation, setStateLocation] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -28,20 +30,27 @@ export default function AuthSignUp() {
         data: {
           first_name: firstName, 
           last_name: lastName,
+          phone: phone,
+          address: stateLocation,
+          role: "client",
           // You can access this later via supabase.auth.user().user_metadata
         },
       },
     });
 
-    if (error) Alert.alert(error.message);
-    if (!session)
-      Alert.alert("Please check your inbox for email verification!");
-    setLoading(false);
-  }
+
+
+  if (error) {
+  Alert.alert("Error de registro", error.message);
+} else if (!session) {
+  Alert.alert("¡Casi listo!", "Por favor revisa tu correo para confirmar tu cuenta.");
+  navigation.navigate("Auth"); // Redirigir al login
+}
+}
 
   return (
     <View style={styles.container}>
-      {/* 3. First Name Input */}
+      {/*First Name Input */}
       <View style={[styles.verticallySpaced, styles.mt20]}>
         <Text style={styles.label}>First Name</Text>
         <Input variant="outline" size="md">
@@ -55,7 +64,7 @@ export default function AuthSignUp() {
         </Input>
       </View>
 
-      {/* 4. Last Name Input */}
+      {/*Last Name Input */}
       <View style={styles.verticallySpaced}>
         <Text style={styles.label}>Last Name</Text>
         <Input variant="outline" size="md">
@@ -65,6 +74,33 @@ export default function AuthSignUp() {
             value={lastName}
             placeholder="Last Name"
             autoCapitalize="words"
+          />
+        </Input>
+      </View>
+
+      {/* Phone Input */}
+      <View style={styles.verticallySpaced}>
+        <Text style={styles.label}>Phone</Text>
+        <Input variant="outline" size="md">
+          <InputField
+            style={styles.input}
+            onChangeText={setPhone}
+            value={phone}
+            placeholder="Phone"
+            keyboardType="phone-pad"
+          />
+        </Input>
+      </View>
+
+      {/* Address Input */}
+      <View style={styles.verticallySpaced}>
+        <Text style={styles.label}>Address</Text>
+        <Input variant="outline" size="md">
+          <InputField
+            style={styles.input}
+            onChangeText={setStateLocation}
+            value={stateLocation}
+            placeholder="Address"
           />
         </Input>
       </View>
