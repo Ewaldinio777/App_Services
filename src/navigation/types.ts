@@ -1,9 +1,9 @@
-export type RootStackParamList = {
+export type AuthStackParamList = {
   Auth: undefined;
-    
-  MainTabs: undefined;
+  Register: undefined;
+  VerifyOTP: { email: string; type: string };
+  ServiciosPlomeria: undefined;
   ServiciosElectricidad: undefined;
   ServiciosLimpieza: undefined;
-  ServiciosPlomeria: undefined;
-  // add other routes here as needed
+  ResetPassword: undefined;
 };

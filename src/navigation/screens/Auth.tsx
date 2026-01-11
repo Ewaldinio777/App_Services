@@ -1,16 +1,18 @@
 import React, { useState } from "react";
-import { Alert, StyleSheet, View } from "react-native";
+import { Alert, StyleSheet, View, TouchableOpacity } from "react-native";
 import { supabase } from "../../lib/supabase-client";
 import { Button, ButtonText } from "../../components/ui/button";
 import { Input, InputField } from "../../components/ui/input";
 import { Text } from "../../components/ui/text";
 import { useNavigation } from "@react-navigation/native";
+import type { AuthStackParamList } from "../../navigation/types";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 export default function Auth() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const navigation = useNavigation();
+  const navigation = useNavigation<NativeStackNavigationProp<AuthStackParamList>>();
 
   async function signInWithEmail() {
     setLoading(true);
@@ -19,9 +21,8 @@ export default function Auth() {
       password: password,
     });
 
-    if (error) Alert.alert(error.message);
+    if (error) Alert.alert("Error", error.message);
     setLoading(false);
-    // Navigation to ManagerCrud is handled in App.tsx via session change
   }
 
   return (
@@ -56,10 +57,10 @@ export default function Auth() {
         >
           <InputField
             style={styles.input}
-            onChangeText={(text) => setPassword(text)} // Fixed
-            value={password} // Fixed
-            placeholder="Password" // Fixed
-            secureTextEntry={true} // Added for security
+            onChangeText={(text) => setPassword(text)}
+            value={password}
+            placeholder="Password"
+            secureTextEntry={true}
             autoCapitalize="none"
           />
         </Input>
@@ -80,6 +81,11 @@ export default function Auth() {
           <ButtonText>Registrarse</ButtonText>
         </Button>
       </View>
+      <TouchableOpacity onPress={() => navigation.navigate("ResetPassword")}>
+        <Text style={styles.forgotPassword}>
+          ¿Olvidaste tu contraseña?
+        </Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -110,5 +116,11 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     paddingHorizontal: 8,
     backgroundColor: "#fff",
+  },
+  forgotPassword: {
+    marginTop: 20,
+    color: "#007AFF",
+    textAlign: "center",
+    fontSize: 16,
   },
 });
