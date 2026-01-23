@@ -96,12 +96,6 @@ const Servicios: React.FC = () => {
     }
   };
 
-  const filterProvidersByCategory = (category: string) => {
-    return providers.filter(p => 
-      p.specialization.toLowerCase().includes(category.toLowerCase())
-    );
-  };
-
   if (!session) {
     return (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>

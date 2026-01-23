@@ -33,7 +33,7 @@ const ServiciosPlomeria: React.FC = () => {
           *,
           profile:profiles(*)
         `)
-        .ilike('specialization', `%plomería%`)
+        .ilike('specialization', `%${category.toLowerCase()}%`)
         .order('rating', { ascending: false, nullsFirst: false });
 
       if (error) throw error;

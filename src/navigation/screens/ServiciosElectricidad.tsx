@@ -33,7 +33,7 @@ const ServiciosElectricidad: React.FC = () => {
           *,
           profile:profiles(*)
         `)
-        .ilike('specialization', `%electricidad%`)
+        .ilike('specialization', `%${category.toLowerCase()}%`)
         .order('rating', { ascending: false, nullsFirst: false });
 
       if (error) throw error;
