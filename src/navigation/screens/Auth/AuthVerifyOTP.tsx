@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { Alert, StyleSheet, View, TouchableOpacity } from "react-native";
-import { supabase } from "../../lib/supabase-client";
-import { Button, ButtonText } from "../../components/ui/button";
-import { Input, InputField } from "../../components/ui/input";
-import { Text } from "../../components/ui/text";
+import { supabase } from "../../../lib/supabase-client";
+import { Button, ButtonText } from "../../../components/ui/button";
+import { Input, InputField } from "../../../components/ui/input";
+import { Text } from "../../../components/ui/text";
 import { useNavigation, useRoute } from "@react-navigation/native";
 
 export default function AuthVerifyOTP() {

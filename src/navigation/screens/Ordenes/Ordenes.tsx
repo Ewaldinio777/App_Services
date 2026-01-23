@@ -1,15 +1,14 @@
 import React, { useEffect, useState } from "react";
 import { View, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, RefreshControl } from "react-native";
 import { Text } from "@/src/components/ui/text";
-import { useAuth } from "../../context/AuthContext";
+import { useAuth } from "../../../context/AuthContext";
 import { supabase } from "@/src/lib/supabase-client";
-import { Order, Profile, Service } from "@/src/types/database.types";
+import { Order, Profile } from "@/src/types/database.types";
 import { Ionicons } from "@react-native-vector-icons/ionicons";
 
 interface OrderWithDetails extends Order {
   client?: Profile;
   provider?: Profile;
-  service?: Service;
 }
 
 const Ordenes: React.FC = () => {
@@ -76,18 +75,10 @@ const Ordenes: React.FC = () => {
             .eq('id', order.provider_id)
             .single();
 
-          // Load service
-          const { data: serviceData } = await supabase
-            .from('services')
-            .select('*')
-            .eq('id', order.service_id)
-            .single();
-
           return {
             ...order,
             client: clientData,
             provider: providerData,
-            service: serviceData,
           };
         })
       );
@@ -108,22 +99,22 @@ const Ordenes: React.FC = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'pending': return '#FFA500';
-      case 'accepted': return '#007AFF';
-      case 'in_progress': return '#007AFF';
-      case 'completed': return '#34C759';
-      case 'cancelled': return '#FF3B30';
+      case 'pendiente': return '#FFA500';
+      case 'aceptado': return '#007AFF';
+      case 'en_proceso': return '#007AFF';
+      case 'completado': return '#34C759';
+      case 'cancelado': return '#FF3B30';
       default: return '#999';
     }
   };
 
   const getStatusText = (status: string) => {
     switch (status) {
-      case 'pending': return 'Pendiente';
-      case 'accepted': return 'Aceptada';
-      case 'in_progress': return 'En Progreso';
-      case 'completed': return 'Completada';
-      case 'cancelled': return 'Cancelada';
+      case 'pendiente': return 'Pendiente';
+      case 'aceptado': return 'Aceptada';
+      case 'en_proceso': return 'En Proceso';
+      case 'completado': return 'Completada';
+      case 'cancelado': return 'Cancelada';
       default: return status;
     }
   };
@@ -199,7 +190,7 @@ const Ordenes: React.FC = () => {
           >
             <View style={styles.orderHeader}>
               <Text style={styles.orderTitle}>
-                {order.service?.title || 'Servicio'}
+                {order.service_type || 'Servicio'}
               </Text>
               <View style={[styles.statusBadge, { backgroundColor: getStatusColor(order.status) }]}>
                 <Text style={styles.statusText}>{getStatusText(order.status)}</Text>

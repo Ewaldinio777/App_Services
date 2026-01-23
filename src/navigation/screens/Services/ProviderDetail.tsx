@@ -8,18 +8,26 @@ import {
   Alert,
 } from "react-native";
 import { Text } from "@/src/components/ui/text";
-import { useAuth } from "../../context/AuthContext";
+import { useAuth } from "../../../context/AuthContext";
 import { supabase } from "@/src/lib/supabase-client";
 import { Provider, Profile, Review } from "@/src/types/database.types";
 import { Ionicons } from "@react-native-vector-icons/ionicons";
-import { useRoute, RouteProp } from "@react-navigation/native";
-import type { RootStackParamList } from "../types";
+import { useRoute, RouteProp, useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import type { RootStackParamList } from "../../types";
 
 type ProviderDetailRouteProp = RouteProp<RootStackParamList, "ProviderDetail">;
+
+type ReviewWithOrder = Review & {
+  orders?: {
+    provider_id: string;
+  } | null;
+};
 
 const ProviderDetail: React.FC = () => {
   const { session } = useAuth();
   const route = useRoute<ProviderDetailRouteProp>();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { providerId } = route.params;
 
   const [provider, setProvider] = useState<Provider | null>(null);
@@ -47,7 +55,7 @@ const ProviderDetail: React.FC = () => {
       const { data: profileData, error: profileError } = await supabase
         .from("profiles")
         .select("*")
-        .eq("id", providerData.profile_id)
+        .eq("id", providerData.id)
         .single();
 
       if (profileError) throw profileError;
@@ -56,13 +64,16 @@ const ProviderDetail: React.FC = () => {
       // Load reviews
       const { data: reviewsData, error: reviewsError } = await supabase
         .from("reviews")
-        .select("*")
-        .eq("provider_id", providerId)
+        .select("*, orders!inner(provider_id)")
+        .eq("orders.provider_id", providerId)
         .order("created_at", { ascending: false })
         .limit(10);
 
       if (reviewsError) throw reviewsError;
-      setReviews(reviewsData || []);
+      const sanitizedReviews = ((reviewsData || []) as ReviewWithOrder[]).map(
+        ({ orders, ...review }) => review
+      );
+      setReviews(sanitizedReviews);
     } catch (error) {
       console.error("Error loading provider details:", error);
       Alert.alert("Error", "No se pudo cargar la información del proveedor");
@@ -71,13 +82,59 @@ const ProviderDetail: React.FC = () => {
     }
   };
 
-  const handleContactProvider = () => {
-    if (provider) {
-      Alert.alert(
-        "Contactar Proveedor",
-        `Teléfono: ${provider.phone}`,
-        [{ text: "OK" }]
-      );
+  const handleContactProvider = async () => {
+    try {
+      if (!session?.user || !profile?.id) {
+        Alert.alert("Error", "No se pudo iniciar el chat");
+        return;
+      }
+
+      if (session.user.id === profile.id) {
+        Alert.alert("Aviso", "No puedes chatear contigo mismo");
+        return;
+      }
+
+      const participantA = session.user.id;
+      const participantB = profile.id;
+
+      const { data: existingChats, error: existingError } = await supabase
+        .from("chats")
+        .select("id")
+        .or(
+          `and(participant_1_id.eq.${participantA},participant_2_id.eq.${participantB}),and(participant_1_id.eq.${participantB},participant_2_id.eq.${participantA})`
+        )
+        .limit(1);
+
+      if (existingError) throw existingError;
+
+      let chatId = existingChats?.[0]?.id;
+
+      if (!chatId) {
+        const { data: newChat, error: createError } = await supabase
+          .from("chats")
+          .insert({
+            participant_1_id: participantA,
+            participant_2_id: participantB,
+          })
+          .select("id")
+          .single();
+
+        if (createError) throw createError;
+        chatId = newChat?.id;
+      }
+
+      if (!chatId) {
+        Alert.alert("Error", "No se pudo crear el chat");
+        return;
+      }
+
+      navigation.navigate("MainTabs", {
+        screen: "Chats",
+        params: { chatId },
+      });
+    } catch (error) {
+      console.error("Error creating chat:", error);
+      Alert.alert("Error", "No se pudo iniciar el chat");
     }
   };
 
@@ -112,13 +169,17 @@ const ProviderDetail: React.FC = () => {
           <Ionicons name="person-circle" size={80} color="#007AFF" />
         </View>
         <Text style={styles.providerName}>{profile.full_name || "Proveedor"}</Text>
-        <Text style={styles.specialization}>{provider.specialization}</Text>
+        <Text style={styles.specialization}>
+          {Array.isArray(provider.specialization)
+            ? provider.specialization.join(", ")
+            : provider.specialization}
+        </Text>
         
         <View style={styles.ratingContainer}>
           <Ionicons name="star" size={20} color="#FFD700" />
           <Text style={styles.ratingText}>
             {provider.rating?.toFixed(1) || "Sin calificaciones"} 
-            {provider.reviews_count ? ` (${provider.reviews_count})` : ""}
+            {provider.total_reviews ? ` (${provider.total_reviews})` : ""}
           </Text>
         </View>
       </View>
@@ -139,7 +200,7 @@ const ProviderDetail: React.FC = () => {
         <Text style={styles.sectionTitle}>Información de Contacto</Text>
         <View style={styles.infoRow}>
           <Ionicons name="call" size={20} color="#007AFF" />
-          <Text style={styles.infoText}>{provider.phone}</Text>
+          <Text style={styles.infoText}>{profile.phone || "No disponible"}</Text>
         </View>
         <View style={styles.infoRow}>
           <Ionicons name="card" size={20} color="#007AFF" />

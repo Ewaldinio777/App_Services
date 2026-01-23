@@ -8,17 +8,13 @@ import {
   RefreshControl,
 } from "react-native";
 import { Text } from "@/src/components/ui/text";
-import { useAuth } from "../../context/AuthContext";
+import { useAuth } from "../../../context/AuthContext";
 import { supabase } from "@/src/lib/supabase-client";
 import { Notification } from "@/src/types/database.types";
 import { Ionicons } from "@react-native-vector-icons/ionicons";
-import { useNavigation } from "@react-navigation/native";
-import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import type { RootStackParamList } from "../types";
 
 const Notificaciones: React.FC = () => {
   const { session } = useAuth();
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -70,28 +66,6 @@ const Notificaciones: React.FC = () => {
     // Mark as read
     if (!notification.is_read) {
       await markAsRead(notification.id);
-    }
-
-    // Handle navigation based on action_type
-    if (notification.action_type && notification.action_data) {
-      switch (notification.action_type) {
-        case "navigate_order":
-          // Navigate to Ordenes tab
-          navigation.navigate("MainTabs");
-          break;
-        case "navigate_chat":
-          // Navigate to Chats tab
-          navigation.navigate("MainTabs");
-          break;
-        case "navigate_service":
-          // Navigate to service detail
-          if (notification.action_data.providerId) {
-            navigation.navigate("ProviderDetail", {
-              providerId: notification.action_data.providerId,
-            });
-          }
-          break;
-      }
     }
   };
 
@@ -160,7 +134,7 @@ const Notificaciones: React.FC = () => {
             <View style={styles.notificationContent}>
               <Text style={styles.notificationTitle}>{notification.title}</Text>
               <Text style={styles.notificationMessage}>
-                {notification.message}
+                {notification.body}
               </Text>
               <Text style={styles.notificationTime}>
                 {new Date(notification.created_at).toLocaleString("es-ES")}

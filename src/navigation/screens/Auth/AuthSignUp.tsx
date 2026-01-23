@@ -1,9 +1,9 @@
 import React, { useState } from "react";
 import { Alert, StyleSheet, View } from "react-native";
-import { supabase } from "../../lib/supabase-client";
-import { Button, ButtonText } from "../../components/ui/button";
-import { Input, InputField } from "../../components/ui/input";
-import { Text } from "../../components/ui/text";
+import { supabase } from "../../../lib/supabase-client";
+import { Button, ButtonText } from "../../../components/ui/button";
+import { Input, InputField } from "../../../components/ui/input";
+import { Text } from "../../../components/ui/text";
 import { useNavigation } from "@react-navigation/native";
 
 export default function AuthSignUp() {
@@ -11,7 +11,7 @@ export default function AuthSignUp() {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [phone, setPhone] = useState("");
-  const [stateLocation, setStateLocation] = useState("");
+  const [state, setState] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -19,6 +19,7 @@ export default function AuthSignUp() {
 
   async function signUpWithEmail() {
     setLoading(true);
+    const fullName = [firstName, lastName].filter(Boolean).join(" ").trim();
     const {
       data: { session },
       error,
@@ -28,11 +29,10 @@ export default function AuthSignUp() {
       options: {
         // 2. Pass the state variables here
         data: {
-          first_name: firstName, 
-          last_name: lastName,
-          phone: phone,
-          address: stateLocation,
-          role: "client",
+          full_name: fullName || null,
+          phone: phone || null,
+          state: state || null,
+          is_provider: false,
           // You can access this later via supabase.auth.user().user_metadata
         },
       },
@@ -98,8 +98,8 @@ export default function AuthSignUp() {
         <Input variant="outline" size="md">
           <InputField
             style={styles.input}
-            onChangeText={setStateLocation}
-            value={stateLocation}
+            onChangeText={setState}
+            value={state}
             placeholder="Address"
           />
         </Input>

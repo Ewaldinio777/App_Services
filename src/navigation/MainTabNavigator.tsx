@@ -1,9 +1,9 @@
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Ionicons } from '@react-native-vector-icons/ionicons';
-import Servicios from "./screens/Servicios";
-import Chats from "./screens/Chats";
-import Ordenes from "./screens/Ordenes";
-import Perfil from "./screens/Perfil";
+import Servicios from "./screens/Services/Servicios";
+import Chats from "./screens/Chats/Chats";
+import Ordenes from "./screens/Ordenes/Ordenes";
+import Perfil from "./screens/Profile/Perfil";
 import React from "react";
 import { MainTabParamList } from "./types";
 

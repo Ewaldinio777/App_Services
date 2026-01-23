@@ -7,17 +7,18 @@ export type AuthStackParamList = {
 
 export type MainTabParamList = {
   Servicios: undefined;
-  Chats: undefined;
+  Chats: { chatId?: string } | undefined;
   Ordenes: undefined;
   Perfil: undefined;
 };
 
 export type RootStackParamList = {
-  MainTabs: undefined;
-  ServiciosPlomeria: { category: string };
-  ServiciosElectricidad: { category: string };
-  ServiciosLimpieza: { category: string };
+  MainTabs: {
+    screen?: keyof MainTabParamList;
+    params?: MainTabParamList[keyof MainTabParamList];
+  } | undefined;
   ProviderDetail: { providerId: string };
   BecomeProvider: undefined;
   Notificaciones: undefined;
+  ChatDetail: { chatId: string; otherParticipantId?: string };
 };

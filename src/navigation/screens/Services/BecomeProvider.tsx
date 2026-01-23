@@ -9,7 +9,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
 } from "react-native";
-import { useAuth } from "../../context/AuthContext";
+import { useAuth } from "../../../context/AuthContext";
 import { supabase } from "@/src/lib/supabase-client";
 import { useNavigation } from "@react-navigation/native";
 
@@ -29,12 +29,17 @@ const BecomeProvider: React.FC = () => {
   const handleBecomeProvider = async () => {
     if (!session?.user) return;
 
+    const specializationArray = formData.specialization
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean);
+
     // Validaciones básicas
     if (
       !formData.id_number ||
       !formData.phone ||
       !formData.description ||
-      !formData.specialization
+      specializationArray.length === 0
     ) {
       Alert.alert(
         "Error",
@@ -48,19 +53,18 @@ const BecomeProvider: React.FC = () => {
       // Paso A: Actualizar is_provider en profiles
       const { error: profileError } = await supabase
         .from("profiles")
-        .update({ is_provider: true })
+        .update({ is_provider: true, phone: formData.phone })
         .eq("id", session.user.id);
 
       if (profileError) throw profileError;
 
       // Paso B: Insertar datos en providers
       const { error: providerError } = await supabase.from("providers").insert({
-        profile_id: session.user.id,
+        id: session.user.id,
         id_number: formData.id_number,
-        phone: formData.phone,
         description: formData.description,
         experience: formData.experience,
-        specialization: formData.specialization,
+        specialization: specializationArray,
       });
 
       if (providerError) throw providerError;

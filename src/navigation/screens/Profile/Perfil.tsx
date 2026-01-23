@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { View, ScrollView, StyleSheet, TouchableOpacity, TextInput, Alert, ActivityIndicator } from "react-native";
 import { Text } from "@/src/components/ui/text";
-import { useAuth } from "../../context/AuthContext";
+import { useAuth } from "../../../context/AuthContext";
 import { supabase } from "@/src/lib/supabase-client";
 import { Profile } from "@/src/types/database.types";
 import { Ionicons } from "@react-native-vector-icons/ionicons";
@@ -103,7 +103,7 @@ const Perfil: React.FC = () => {
 
         <View style={styles.fieldContainer}>
           <Text style={styles.label}>Email</Text>
-          <Text style={styles.value}>{profile?.email || session.user.email}</Text>
+          <Text style={styles.value}>{session.user.email}</Text>
         </View>
 
         <View style={styles.fieldContainer}>

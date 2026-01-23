@@ -1,11 +1,11 @@
 import React, { useState } from "react";
 import { Alert, StyleSheet, View, TouchableOpacity } from "react-native";
-import { supabase } from "../../lib/supabase-client";
-import { Button, ButtonText } from "../../components/ui/button";
-import { Input, InputField } from "../../components/ui/input";
-import { Text } from "../../components/ui/text";
+import { supabase } from "../../../lib/supabase-client";
+import { Button, ButtonText } from "../../../components/ui/button";
+import { Input, InputField } from "../../../components/ui/input";
+import { Text } from "../../../components/ui/text";
 import { useNavigation } from "@react-navigation/native";
-import type { AuthStackParamList } from "../../navigation/types";
+import type { AuthStackParamList } from "../../types";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 export default function Auth() {

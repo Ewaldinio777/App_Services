@@ -1,18 +1,25 @@
 import React, { useEffect, useState } from "react";
 import { View, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, RefreshControl } from "react-native";
 import { Text } from "@/src/components/ui/text";
-import { useAuth } from "../../context/AuthContext";
+import { useAuth } from "../../../context/AuthContext";
 import { supabase } from "@/src/lib/supabase-client";
-import { Chat, Message, Profile } from "@/src/types/database.types";
+import { Chat, Profile } from "@/src/types/database.types";
 import { Ionicons } from "@react-native-vector-icons/ionicons";
+import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
+import type { MainTabParamList, RootStackParamList } from "../../types";
 
 interface ChatWithDetails extends Chat {
   other_participant?: Profile;
-  unread_count?: number;
+  last_message?: string;
+  last_message_at?: string;
 }
 
 const Chats: React.FC = () => {
   const { session } = useAuth();
+  const tabNavigation = useNavigation<BottomTabNavigationProp<MainTabParamList>>();
+  const route = useRoute<RouteProp<MainTabParamList, "Chats">>();
   const [chats, setChats] = useState<ChatWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -38,6 +45,16 @@ const Chats: React.FC = () => {
     }
   }, [session]);
 
+  useEffect(() => {
+    if (route.params?.chatId) {
+      tabNavigation.getParent<NativeStackNavigationProp<RootStackParamList>>()?.navigate(
+        "ChatDetail",
+        { chatId: route.params.chatId }
+      );
+      tabNavigation.setParams({ chatId: undefined });
+    }
+  }, [route.params?.chatId, tabNavigation]);
+
   const loadChats = async () => {
     try {
       if (!session?.user) return;
@@ -47,37 +64,41 @@ const Chats: React.FC = () => {
         .from('chats')
         .select('*')
         .or(`participant_1_id.eq.${session.user.id},participant_2_id.eq.${session.user.id}`)
-        .order('last_message_at', { ascending: false, nullsFirst: false });
+        .order('created_at', { ascending: false });
 
       if (chatsError) throw chatsError;
 
       // Load details for each chat
       const chatsWithDetails = await Promise.all(
         (chatsData || []).map(async (chat) => {
-          // Determine other participant
-          const otherParticipantId = chat.participant_1_id === session.user.id
-            ? chat.participant_2_id
-            : chat.participant_1_id;
+          const otherParticipantId =
+            chat.participant_1_id && chat.participant_2_id
+              ? chat.participant_1_id === session.user.id
+                ? chat.participant_2_id
+                : chat.participant_1_id
+              : undefined;
 
-          // Load other participant's profile
-          const { data: profileData } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', otherParticipantId)
-            .single();
+          const { data: profileData } = otherParticipantId
+            ? await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', otherParticipantId)
+                .single()
+            : { data: null };
 
-          // Count unread messages
-          const { count } = await supabase
+          const { data: lastMessageData } = await supabase
             .from('messages')
-            .select('*', { count: 'exact', head: true })
+            .select('content, created_at')
             .eq('chat_id', chat.id)
-            .eq('is_read', false)
-            .neq('sender_id', session.user.id);
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .single();
 
           return {
             ...chat,
-            other_participant: profileData,
-            unread_count: count || 0,
+            other_participant: profileData || undefined,
+            last_message: lastMessageData?.content || undefined,
+            last_message_at: lastMessageData?.created_at || undefined,
           };
         })
       );
@@ -134,8 +155,13 @@ const Chats: React.FC = () => {
             key={chat.id}
             style={styles.chatItem}
             onPress={() => {
-              // TODO: Navigate to chat detail screen
-              console.log('Navigate to chat:', chat.id);
+              tabNavigation.getParent<NativeStackNavigationProp<RootStackParamList>>()?.navigate(
+                "ChatDetail",
+                {
+                  chatId: chat.id,
+                  otherParticipantId: chat.other_participant?.id,
+                }
+              );
             }}
           >
             <View style={styles.avatarContainer}>
@@ -156,13 +182,7 @@ const Chats: React.FC = () => {
                 <Text style={styles.chatLastMessage} numberOfLines={1}>
                   {chat.last_message || 'Sin mensajes'}
                 </Text>
-                {chat.unread_count && chat.unread_count > 0 && (
-                  <View style={styles.unreadBadge}>
-                    <Text style={styles.unreadText}>
-                      {chat.unread_count > 99 ? '99+' : chat.unread_count}
-                    </Text>
-                  </View>
-                )}
+                
               </View>
             </View>
           </TouchableOpacity>
