@@ -189,12 +189,18 @@ const categories = [
         </View>
       </View>
 
-      <View style={styles.promptContainer}>
-        <Text style={styles.promptText}>¿Deseas ofrecer tus servicios?</Text>
-      </View>
+      {!isProvider && (
+        <TouchableOpacity 
+          style={styles.promptContainer} 
+          onPress={() => navigation.navigate("BecomeProvider")}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.promptText}>¿Deseas ofrecer tus servicios?</Text>
+        </TouchableOpacity>
+      )}
 
-      <View style={styles.searchRow}>
-        <View style={styles.searchInputContainer}>
+      <View style={styles.searchContainer}>
+        <View style={styles.searchInputWrapper}>
           <Ionicons name="search" size={18} color="#9AA0A6" />
           <TextInput
             placeholder="Buscar por nombre"
@@ -212,27 +218,29 @@ const categories = [
           )}
         </View>
 
-        <TouchableOpacity
-          style={[styles.filterButton, { marginLeft: 10 }]}
-          onPress={() => setIsFilterOpen((prev) => !prev)}
-        >
-          <Ionicons name="filter" size={18} color="#007AFF" />
-          <Text style={styles.filterText}>
-            {selectedCategory === "Todos" ? "Categoría" : selectedCategory}
-          </Text>
-          <Ionicons name={isFilterOpen ? "chevron-up" : "chevron-down"} size={16} color="#007AFF" />
-        </TouchableOpacity>
+        <View style={styles.filtersRow}>
+          <TouchableOpacity
+            style={styles.filterButton}
+            onPress={() => setIsFilterOpen((prev) => !prev)}
+          >
+            <Ionicons name="filter" size={18} color="#007AFF" />
+            <Text style={styles.filterText}>
+              {selectedCategory === "Todos" ? "Categoría" : selectedCategory}
+            </Text>
+            <Ionicons name={isFilterOpen ? "chevron-up" : "chevron-down"} size={16} color="#007AFF" />
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.filterButton, { marginLeft: 10 }]}
-          onPress={() => setIsStateModalVisible(true)}
-        >
-          <Ionicons name="location-outline" size={18} color="#007AFF" />
-          <Text style={styles.filterText}>
-            {selectedState === "Todos" ? "Estado" : selectedState}
-          </Text>
-          <Ionicons name="chevron-down" size={16} color="#007AFF" />
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.filterButton}
+            onPress={() => setIsStateModalVisible(true)}
+          >
+            <Ionicons name="location-outline" size={18} color="#007AFF" />
+            <Text style={styles.filterText}>
+              {selectedState === "Todos" ? "Estado" : selectedState}
+            </Text>
+            <Ionicons name="chevron-down" size={16} color="#007AFF" />
+          </TouchableOpacity>
+        </View>
       </View>
 
        {/* Services Filter Modal */}
@@ -340,6 +348,7 @@ const categories = [
                     <Ionicons name="star" size={14} color="#FFD700" />
                     <Text style={styles.ratingText}>
                       {provider.rating?.toFixed(1) || "Sin calificaciones"}
+                      {provider.total_reviews ? ` (${provider.total_reviews})` : ""}
                     </Text>
                   </View>
                 </View>
@@ -429,21 +438,23 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#111827',
   },
-  searchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  searchContainer: {
     paddingHorizontal: 20,
+    marginBottom: 12,
     gap: 10,
-    marginBottom: 8,
   },
-  searchInputContainer: {
-    flex: 1,
+  searchInputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F2F4F7',
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: 10,
     borderRadius: 14,
+  },
+  filtersRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
   searchInput: {
     flex: 1,
@@ -458,7 +469,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#E8F0FE',
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 14,
     gap: 6,

@@ -33,10 +33,13 @@ export interface Order {
   client_id: string;
   provider_id: string;
   service_type: string;
+  title?: string; // Added field
   description?: string;
   status: 'pendiente' | 'aceptado' | 'en_proceso' | 'completado' | 'cancelado';
-  scheduled_date?: string;
+  scheduled_date?: string; // timestamp
+  scheduled_time?: string; // time
   location?: string;
+  delivery_address?: string; // Added field based on usage
   created_at: string;
   updated_at?: string;
 }

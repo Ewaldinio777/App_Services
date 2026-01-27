@@ -8,7 +8,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
-  SafeAreaView,
   Keyboard,
   Modal,
   Image,
@@ -20,7 +19,7 @@ import { useAuth } from "../../../context/AuthContext";
 import { supabase } from "@/src/lib/supabase-client";
 import { Message, Profile } from "@/src/types/database.types";
 import { Ionicons } from "@react-native-vector-icons/ionicons";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useSafeAreaInsets, SafeAreaView } from "react-native-safe-area-context";
 import { useRoute, RouteProp, useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../../types";

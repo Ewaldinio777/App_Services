@@ -8,7 +8,10 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  Platform,
+  KeyboardAvoidingView,
 } from "react-native";
+import CustomDateTimePicker from "@/src/components/ui/CustomDateTimePicker";
 import { Text } from "@/src/components/ui/text";
 import { useAuth } from "../../../context/AuthContext";
 import { supabase } from "@/src/lib/supabase-client";
@@ -31,10 +34,10 @@ export default function ScheduleServiceScreen() {
   const [service, setService] = useState<any>(null);
 
   // Form state
-  // Simple text inputs as per request for "Date and Time" and "Address"
-  // In a real app, use a DatePicker
-  const [date, setDate] = useState("");
-  const [time, setTime] = useState("");
+  const [requestTitle, setRequestTitle] = useState("");
+  const [requestDescription, setRequestDescription] = useState("");
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [showPicker, setShowPicker] = useState(false);
   const [address, setAddress] = useState("");
 
   useEffect(() => {
@@ -85,15 +88,20 @@ export default function ScheduleServiceScreen() {
     }
   };
 
+  const handleDateSelect = (date: Date) => {
+    setSelectedDate(date);
+    setShowPicker(false);
+  };
+
   const handleSchedule = async () => {
-    if (!date || !time || !address) {
-      Alert.alert("Error", "Por favor completa todos los campos (Fecha, Hora, Dirección)");
+    if (!requestTitle || !requestDescription || !address) {
+      Alert.alert("Error", "Por favor completa todos los campos (Título, Descripción, Dirección)");
       return;
     }
-    if (!service) {
-      Alert.alert("Error", "Este proveedor no tiene servicios configurados para agendar.");
-      return;
-    }
+    // if (!service) {
+    //   Alert.alert("Error", "Este proveedor no tiene servicios configurados para agendar.");
+    //   return;
+    // }
 
     try {
         setSubmitting(true);
@@ -102,13 +110,15 @@ export default function ScheduleServiceScreen() {
         const { error } = await supabase.from("orders").insert({
             client_id: session?.user.id,
             provider_id: provider.id, 
-            service_id: service.id,
-            status: "pending",
-            description: service.description,
-            total_price: service.price || 0,
-            scheduled_date: date,
-            scheduled_time: time,
-            delivery_address: address
+            // service_id: service?.id, // Removed as it doesn't exist in schema
+            status: "pendiente",
+            title: requestTitle, 
+            description: requestDescription,
+            // total_price: service?.price || 0, // Removed as it doesn't exist in schema
+            scheduled_date: selectedDate.toISOString().split('T')[0],
+            scheduled_time: selectedDate.toTimeString().split(' ')[0],
+            delivery_address: address,
+            service_type: requestTitle // Using title as service_type for now
         });
 
         if (error) throw error;
@@ -119,7 +129,7 @@ export default function ScheduleServiceScreen() {
 
     } catch (error) {
         console.error("Error creating order:", error);
-        Alert.alert("Error", "No se pudo agendar la cita.");
+        Alert.alert("Error", "No se pudo agendar la cita. Verifica la conexión.");
     } finally {
         setSubmitting(false);
     }
@@ -134,6 +144,10 @@ export default function ScheduleServiceScreen() {
   }
 
   return (
+    <KeyboardAvoidingView 
+      style={{ flex: 1 }} 
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+    >
     <ScrollView contentContainerStyle={styles.container}>
       <View style={styles.header}>
             <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
@@ -142,37 +156,37 @@ export default function ScheduleServiceScreen() {
             <Text style={styles.headerTitle}>Solicitud de Servicio</Text>
       </View>
 
-      <Text style={styles.sectionTitle}>Enter Your Information</Text>
+      <Text style={styles.sectionTitle}>Ingresa la información para solicitar el servicio</Text>
 
       <View style={styles.formGroup}>
-        <Text style={styles.label}>Date and Time</Text>
-        <View style={styles.row}>
-            <TextInput
-                style={[styles.input, { flex: 1, marginRight: 8 }]}
-                placeholder="26 May (Monday)"
-                value={date}
-                onChangeText={setDate}
-            />
-            <TextInput
-                style={[styles.input, { flex: 1 }]}
-                placeholder="9:30 AM"
-                value={time}
-                onChangeText={setTime}
-            />
-        </View>
+        <Text style={styles.label}>Fecha y Hora</Text>
+        <TouchableOpacity 
+            style={[styles.input, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}
+            onPress={() => setShowPicker(true)}
+        >
+             <Text>{selectedDate.toLocaleDateString()} - {selectedDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', hour12: true})}</Text>
+             <Ionicons name="calendar-outline" size={20} color="#666" />
+        </TouchableOpacity>
+        
+        <CustomDateTimePicker
+            visible={showPicker}
+            initialDate={selectedDate}
+            onClose={() => setShowPicker(false)}
+            onSelect={handleDateSelect}
+        />
       </View>
 
       <View style={styles.formGroup}>
-        <Text style={styles.label}>Enter Address</Text>
+        <Text style={styles.label}>Ingresa la Dirección</Text>
         <TextInput
             style={styles.input}
-            placeholder="2562 Road Dhaka, Bangladesh"
+            placeholder="Dirección donde se llevará a cabo el servicio"
             value={address}
             onChangeText={setAddress}
         />
       </View>
 
-      <Text style={[styles.sectionTitle, { marginTop: 24 }]}>Detalles del Servicio</Text>
+      <Text style={[styles.sectionTitle, { marginTop: 24 }]}>Detalles de Solicitud</Text>
 
       <View style={styles.card}>
         <View style={styles.providerHeader}>
@@ -192,19 +206,31 @@ export default function ScheduleServiceScreen() {
         </View>
         <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Teléfono</Text>
-            <Text style={styles.detailValue}>{provider?.phone || "N/A"}</Text>
+            {/* Show provider phone, or profile phone, or N/A */}
+            <Text style={styles.detailValue}>{provider?.phone || profile?.phone || "N/A"}</Text>
         </View>
 
         <View style={styles.divider} />
 
         <View style={styles.detailBlock}>
-            <Text style={styles.detailLabel}>Título del servicio</Text>
-            <Text style={styles.serviceTitle}>{service?.title || provider?.specialization || "Servicio General"}</Text>
+            <Text style={styles.detailLabel}>Título del Servicio</Text>
+            <TextInput
+                style={[styles.input, { backgroundColor: '#fff', marginTop: 4 }]}
+                placeholder="Ej: Revisión de tubería, Limpieza profunda..."
+                value={requestTitle}
+                onChangeText={setRequestTitle}
+            />
         </View>
         
         <View style={styles.detailBlock}>
-            <Text style={styles.detailLabel}>Descripción del servicio</Text>
-            <Text style={styles.serviceDesc}>{service?.description || provider?.description || "Sin descripción"}</Text>
+            <Text style={styles.detailLabel}>Descripción del Servicio</Text>
+            <TextInput
+                style={[styles.input, { backgroundColor: '#fff', marginTop: 4, height: 80, textAlignVertical: 'top' }]}
+                placeholder="Describe el problema o trabajo a realizar..."
+                value={requestDescription}
+                onChangeText={setRequestDescription}
+                multiline
+            />
         </View>
       </View>
 
@@ -221,8 +247,10 @@ export default function ScheduleServiceScreen() {
       </TouchableOpacity>
 
     </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
+
 
 const styles = StyleSheet.create({
   container: {

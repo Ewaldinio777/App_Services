@@ -1,6 +1,57 @@
 -- WARNING: This schema is for context only and is not meant to be run.
 -- Table order and constraints may not be valid for execution.
 
+CREATE TABLE public.chats (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  order_id uuid,
+  created_at timestamp without time zone DEFAULT now(),
+  participant_1_id uuid,
+  participant_2_id uuid,
+  CONSTRAINT chats_pkey PRIMARY KEY (id),
+  CONSTRAINT chats_participant_1_id_fkey FOREIGN KEY (participant_1_id) REFERENCES public.profiles(id),
+  CONSTRAINT chats_participant_2_id_fkey FOREIGN KEY (participant_2_id) REFERENCES public.profiles(id),
+  CONSTRAINT chats_order_id_fkey FOREIGN KEY (order_id) REFERENCES public.orders(id)
+);
+CREATE TABLE public.messages (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  chat_id uuid,
+  sender_id uuid,
+  content text,
+  created_at timestamp with time zone,
+  CONSTRAINT messages_pkey PRIMARY KEY (id),
+  CONSTRAINT messages_chat_id_fkey FOREIGN KEY (chat_id) REFERENCES public.chats(id),
+  CONSTRAINT messages_sender_id_fkey FOREIGN KEY (sender_id) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.notifications (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  user_id uuid,
+  title text,
+  body text,
+  type text,
+  is_read boolean DEFAULT false,
+  related_id uuid,
+  created_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT notifications_pkey PRIMARY KEY (id),
+  CONSTRAINT notifications_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.orders (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  client_id uuid,
+  provider_id uuid,
+  service_type text,
+  description text,
+  status text DEFAULT 'pendiente'::text,
+  scheduled_date timestamp without time zone,
+  location text,
+  created_at timestamp without time zone DEFAULT now(),
+  updated_at timestamp without time zone DEFAULT now(),
+  scheduled_time time without time zone,
+  delivery_address text,
+  title text,
+  CONSTRAINT orders_pkey PRIMARY KEY (id),
+  CONSTRAINT orders_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.profiles(id),
+  CONSTRAINT orders_provider_id_fkey FOREIGN KEY (provider_id) REFERENCES public.providers(id)
+);
 CREATE TABLE public.profiles (
   id uuid NOT NULL,
   full_name text,
@@ -12,7 +63,6 @@ CREATE TABLE public.profiles (
   CONSTRAINT profiles_pkey PRIMARY KEY (id),
   CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id)
 );
-
 CREATE TABLE public.providers (
   id uuid NOT NULL,
   id_number text NOT NULL UNIQUE,
@@ -26,70 +76,6 @@ CREATE TABLE public.providers (
   CONSTRAINT providers_pkey PRIMARY KEY (id),
   CONSTRAINT providers_id_fkey FOREIGN KEY (id) REFERENCES public.profiles(id)
 );
-
-CREATE TABLE public.services (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
-  provider_id uuid,
-  service_type text,
-  created_at timestamp without time zone DEFAULT now(),
-  CONSTRAINT services_pkey PRIMARY KEY (id),
-  CONSTRAINT services_provider_id_fkey FOREIGN KEY (provider_id) REFERENCES public.providers(id)
-);
-
-CREATE TABLE public.orders (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
-  client_id uuid,
-  provider_id uuid,
-  service_type text,
-  description text,
-  status text DEFAULT 'pendiente'::text,
-  scheduled_date date,
-  scheduled_time time without time zone,
-  delivery_address text,
-  location text,
-  created_at timestamp without time zone DEFAULT now(),
-  updated_at timestamp without time zone DEFAULT now(),
-  CONSTRAINT orders_pkey PRIMARY KEY (id),
-  CONSTRAINT orders_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.profiles(id),
-  CONSTRAINT orders_provider_id_fkey FOREIGN KEY (provider_id) REFERENCES public.providers(id)
-);
-
-CREATE TABLE public.chats (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
-  order_id uuid,
-  created_at timestamp without time zone DEFAULT now(),
-  participant_1_id uuid,
-  participant_2_id uuid,
-  CONSTRAINT chats_pkey PRIMARY KEY (id),
-  CONSTRAINT chats_participant_1_id_fkey FOREIGN KEY (participant_1_id) REFERENCES public.profiles(id),
-  CONSTRAINT chats_participant_2_id_fkey FOREIGN KEY (participant_2_id) REFERENCES public.profiles(id),
-  CONSTRAINT chats_order_id_fkey FOREIGN KEY (order_id) REFERENCES public.orders(id)
-);
-
-CREATE TABLE public.messages (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
-  chat_id uuid,
-  sender_id uuid,
-  content text,
-  created_at timestamp with time zone,
-  CONSTRAINT messages_pkey PRIMARY KEY (id),
-  CONSTRAINT messages_chat_id_fkey FOREIGN KEY (chat_id) REFERENCES public.chats(id),
-  CONSTRAINT messages_sender_id_fkey FOREIGN KEY (sender_id) REFERENCES public.profiles(id)
-);
-
-CREATE TABLE public.notifications (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
-  user_id uuid,
-  title text,
-  body text,
-  type text,
-  is_read boolean DEFAULT false,
-  related_id uuid,
-  created_at timestamp without time zone DEFAULT now(),
-  CONSTRAINT notifications_pkey PRIMARY KEY (id),
-  CONSTRAINT notifications_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id)
-);
-
 CREATE TABLE public.reviews (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
   order_id uuid,
@@ -101,6 +87,14 @@ CREATE TABLE public.reviews (
   CONSTRAINT reviews_pkey PRIMARY KEY (id),
   CONSTRAINT reviews_order_id_fkey FOREIGN KEY (order_id) REFERENCES public.orders(id),
   CONSTRAINT reviews_reviewer_id_fkey FOREIGN KEY (reviewer_id) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.services (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  provider_id uuid,
+  service_type text,
+  created_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT services_pkey PRIMARY KEY (id),
+  CONSTRAINT services_provider_id_fkey FOREIGN KEY (provider_id) REFERENCES public.providers(id)
 ););
 
 -- Create indexes for better performance

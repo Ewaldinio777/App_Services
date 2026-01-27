@@ -22,6 +22,9 @@ type ReviewWithOrder = Review & {
   orders?: {
     provider_id: string;
   } | null;
+  reviewer_profile?: {
+    full_name: string;
+  } | null;
 };
 
 const ProviderDetail: React.FC = () => {
@@ -32,12 +35,13 @@ const ProviderDetail: React.FC = () => {
 
   const [provider, setProvider] = useState<Provider | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [reviews, setReviews] = useState<Review[]>([]);
+  const [reviews, setReviews] = useState<ReviewWithOrder[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadProviderDetails();
   }, [providerId]);
+
 
   const loadProviderDetails = async () => {
     try {
@@ -64,16 +68,37 @@ const ProviderDetail: React.FC = () => {
       // Load reviews
       const { data: reviewsData, error: reviewsError } = await supabase
         .from("reviews")
-        .select("*, orders!inner(provider_id)")
+        .select("*, orders!inner(provider_id), reviewer_profile:profiles!reviewer_id(full_name)")
         .eq("orders.provider_id", providerId)
-        .order("created_at", { ascending: false })
-        .limit(10);
+        .order("created_at", { ascending: false });
 
       if (reviewsError) throw reviewsError;
-      const sanitizedReviews = ((reviewsData || []) as ReviewWithOrder[]).map(
+      
+      const rawReviews = (reviewsData || []) as unknown as ReviewWithOrder[];
+      const sanitizedReviews = rawReviews.map(
         ({ orders, ...review }) => review
       );
       setReviews(sanitizedReviews);
+
+      // Calculate and update average rating
+      if (sanitizedReviews.length > 0) {
+        const totalRating = sanitizedReviews.reduce((acc, curr) => acc + curr.rating, 0);
+        const averageRating = totalRating / sanitizedReviews.length;
+
+        // Check if we need to update
+        if (Math.abs((providerData.rating || 0) - averageRating) > 0.01 || providerData.total_reviews !== sanitizedReviews.length) {
+           setProvider(prev => prev ? ({ ...prev, rating: averageRating, total_reviews: sanitizedReviews.length }) : null);
+           
+           // Update in DB silently
+           supabase.from('providers').update({
+             rating: averageRating,
+             total_reviews: sanitizedReviews.length
+           }).eq('id', providerId).then(({ error }) => {
+             if (error) console.error("Error updating provider rating:", error);
+           });
+        }
+      }
+
     } catch (error) {
       console.error("Error loading provider details:", error);
       Alert.alert("Error", "No se pudo cargar la información del proveedor");
@@ -147,7 +172,7 @@ const ProviderDetail: React.FC = () => {
   }
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 40 }}>
       <View style={styles.header}>
         <View style={styles.avatarContainer}>
           <Ionicons name="person-circle" size={80} color="#007AFF" />
@@ -197,6 +222,9 @@ const ProviderDetail: React.FC = () => {
           <Text style={styles.sectionTitle}>Reseñas</Text>
           {reviews.map((review) => (
             <View key={review.id} style={styles.reviewItem}>
+              <Text style={styles.reviewerName}>
+                {review.reviewer_profile?.full_name || "Usuario"}
+              </Text>
               <View style={styles.reviewHeader}>
                 <View style={styles.starsContainer}>
                   {[...Array(5)].map((_, i) => (
@@ -318,18 +346,24 @@ const styles = StyleSheet.create({
   },
   reviewComment: {
     fontSize: 14,
-    color: "#666",
-    marginTop: 5,
+    color: "#333",
   },
-  contactButton: {
-    flexDirection: "row",
-    backgroundColor: "#007AFF",
-    margin: 20,
-    padding: 15,
-    borderRadius: 8,
-    alignItems: "center",
-    justifyContent: "center",
+  reviewerName: {
+    fontSize: 14,
+    fontWeight: "bold",
+    marginBottom: 4,
+    color: "#333",
   },
+contactButton: {
+  flexDirection: "row",
+  backgroundColor: "#007AFF",
+  margin: 20,
+  marginBottom: 4,
+  padding: 15,
+  borderRadius: 8,
+  alignItems: "center",
+  justifyContent: "center",
+},
   contactButtonText: {
     color: "#fff",
     fontSize: 18,
