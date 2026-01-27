@@ -109,28 +109,12 @@ const ProviderDetail: React.FC = () => {
 
       let chatId = existingChats?.[0]?.id;
 
-      if (!chatId) {
-        const { data: newChat, error: createError } = await supabase
-          .from("chats")
-          .insert({
-            participant_1_id: participantA,
-            participant_2_id: participantB,
-          })
-          .select("id")
-          .single();
-
-        if (createError) throw createError;
-        chatId = newChat?.id;
-      }
-
-      if (!chatId) {
-        Alert.alert("Error", "No se pudo crear el chat");
-        return;
-      }
-
+      // Navigate to Chats with either existing chatId or otherParticipantId to create one later
       navigation.navigate("MainTabs", {
         screen: "Chats",
-        params: { chatId },
+        params: chatId 
+          ? { chatId }
+          : { otherParticipantId: participantB },
       });
     } catch (error) {
       console.error("Error creating chat:", error);

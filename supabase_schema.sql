@@ -1,104 +1,107 @@
--- SQL Migration for App Services Database Schema
--- This file documents the required Supabase database schema
+-- WARNING: This schema is for context only and is not meant to be run.
+-- Table order and constraints may not be valid for execution.
 
--- Profiles table (extends Supabase auth.users)
-CREATE TABLE IF NOT EXISTS profiles (
-  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  email TEXT UNIQUE NOT NULL,
-  full_name TEXT,
-  avatar_url TEXT,
-  is_provider BOOLEAN DEFAULT FALSE,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW()),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW())
+CREATE TABLE public.profiles (
+  id uuid NOT NULL,
+  full_name text,
+  avatar_url text,
+  state text,
+  phone text,
+  is_provider boolean DEFAULT false,
+  created_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT profiles_pkey PRIMARY KEY (id),
+  CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id)
 );
 
--- Providers table (for users who are providers)
-CREATE TABLE IF NOT EXISTS providers (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  profile_id UUID UNIQUE NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-  id_number TEXT NOT NULL, -- cedula/RIF
-  specialization TEXT NOT NULL,
-  description TEXT NOT NULL,
-  experience TEXT,
-  phone TEXT NOT NULL,
-  rating DECIMAL(3, 2),
-  reviews_count INTEGER DEFAULT 0,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW()),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW())
+CREATE TABLE public.providers (
+  id uuid NOT NULL,
+  id_number text NOT NULL UNIQUE,
+  specialization ARRAY,
+  description text,
+  experience text,
+  is_active boolean DEFAULT true,
+  rating numeric DEFAULT 0,
+  total_reviews integer DEFAULT 0,
+  phone bigint,
+  CONSTRAINT providers_pkey PRIMARY KEY (id),
+  CONSTRAINT providers_id_fkey FOREIGN KEY (id) REFERENCES public.profiles(id)
 );
 
--- Services table (services offered by providers)
-CREATE TABLE IF NOT EXISTS services (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  provider_id UUID NOT NULL REFERENCES providers(id) ON DELETE CASCADE,
-  title TEXT NOT NULL,
-  description TEXT NOT NULL,
-  category TEXT NOT NULL,
-  price DECIMAL(10, 2),
-  image_url TEXT,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW()),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW())
+CREATE TABLE public.services (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  provider_id uuid,
+  service_type text,
+  created_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT services_pkey PRIMARY KEY (id),
+  CONSTRAINT services_provider_id_fkey FOREIGN KEY (provider_id) REFERENCES public.providers(id)
 );
 
--- Orders table (service requests/jobs)
-CREATE TABLE IF NOT EXISTS orders (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  client_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-  provider_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-  service_id UUID NOT NULL REFERENCES services(id) ON DELETE CASCADE,
-  status TEXT NOT NULL CHECK (status IN ('pending', 'accepted', 'in_progress', 'completed', 'cancelled')),
-  description TEXT,
-  total_price DECIMAL(10, 2),
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW()),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW())
+CREATE TABLE public.orders (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  client_id uuid,
+  provider_id uuid,
+  service_type text,
+  description text,
+  status text DEFAULT 'pendiente'::text,
+  scheduled_date date,
+  scheduled_time time without time zone,
+  delivery_address text,
+  location text,
+  created_at timestamp without time zone DEFAULT now(),
+  updated_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT orders_pkey PRIMARY KEY (id),
+  CONSTRAINT orders_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.profiles(id),
+  CONSTRAINT orders_provider_id_fkey FOREIGN KEY (provider_id) REFERENCES public.providers(id)
 );
 
--- Chats table (conversations between users)
-CREATE TABLE IF NOT EXISTS chats (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  order_id UUID REFERENCES orders(id) ON DELETE SET NULL,
-  participant_1_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-  participant_2_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-  last_message TEXT,
-  last_message_at TIMESTAMP WITH TIME ZONE,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW()),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW()),
-  CONSTRAINT different_participants CHECK (participant_1_id != participant_2_id)
+CREATE TABLE public.chats (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  order_id uuid,
+  created_at timestamp without time zone DEFAULT now(),
+  participant_1_id uuid,
+  participant_2_id uuid,
+  CONSTRAINT chats_pkey PRIMARY KEY (id),
+  CONSTRAINT chats_participant_1_id_fkey FOREIGN KEY (participant_1_id) REFERENCES public.profiles(id),
+  CONSTRAINT chats_participant_2_id_fkey FOREIGN KEY (participant_2_id) REFERENCES public.profiles(id),
+  CONSTRAINT chats_order_id_fkey FOREIGN KEY (order_id) REFERENCES public.orders(id)
 );
 
--- Messages table (messages within chats)
-CREATE TABLE IF NOT EXISTS messages (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  chat_id UUID NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
-  sender_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-  content TEXT NOT NULL,
-  is_read BOOLEAN DEFAULT FALSE,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW())
+CREATE TABLE public.messages (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  chat_id uuid,
+  sender_id uuid,
+  content text,
+  created_at timestamp with time zone,
+  CONSTRAINT messages_pkey PRIMARY KEY (id),
+  CONSTRAINT messages_chat_id_fkey FOREIGN KEY (chat_id) REFERENCES public.chats(id),
+  CONSTRAINT messages_sender_id_fkey FOREIGN KEY (sender_id) REFERENCES public.profiles(id)
 );
 
--- Reviews table (reviews for completed orders)
-CREATE TABLE IF NOT EXISTS reviews (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  order_id UUID UNIQUE NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
-  provider_id UUID NOT NULL REFERENCES providers(id) ON DELETE CASCADE,
-  client_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-  rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
-  comment TEXT,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW())
+CREATE TABLE public.notifications (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  user_id uuid,
+  title text,
+  body text,
+  type text,
+  is_read boolean DEFAULT false,
+  related_id uuid,
+  created_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT notifications_pkey PRIMARY KEY (id),
+  CONSTRAINT notifications_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id)
 );
 
--- Notifications table (user notifications)
-CREATE TABLE IF NOT EXISTS notifications (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-  type TEXT NOT NULL CHECK (type IN ('order', 'message', 'review', 'system')),
-  title TEXT NOT NULL,
-  message TEXT NOT NULL,
-  is_read BOOLEAN DEFAULT FALSE,
-  action_type TEXT CHECK (action_type IN ('navigate_order', 'navigate_chat', 'navigate_service')),
-  action_data JSONB,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW())
-);
+CREATE TABLE public.reviews (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  order_id uuid,
+  reviewer_id uuid,
+  rating integer CHECK (rating >= 1 AND rating <= 5),
+  comment text,
+  complaint text,
+  created_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT reviews_pkey PRIMARY KEY (id),
+  CONSTRAINT reviews_order_id_fkey FOREIGN KEY (order_id) REFERENCES public.orders(id),
+  CONSTRAINT reviews_reviewer_id_fkey FOREIGN KEY (reviewer_id) REFERENCES public.profiles(id)
+););
 
 -- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_providers_profile_id ON providers(profile_id);

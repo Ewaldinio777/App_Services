@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { View, ScrollView, StyleSheet, TouchableOpacity, TextInput } from "react-native";
+import { View, ScrollView, StyleSheet, TouchableOpacity, TextInput, Modal, FlatList } from "react-native";
 import { useAuth } from "../../../context/AuthContext";
 import { Text } from "@/src/components/ui/text";
 import { Ionicons } from '@react-native-vector-icons/ionicons';
@@ -8,6 +8,15 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from "../../types";
 import { supabase } from "@/src/lib/supabase-client";
 import { Profile, Provider } from "@/src/types/database.types";
+
+const VENEZUELA_STATES = [
+  "Todos",
+  "Amazonas", "Anzoátegui", "Apure", "Aragua", "Barinas", "Bolívar", 
+  "Carabobo", "Cojedes", "Delta Amacuro", "Distrito Capital", "Falcón", 
+  "Guárico", "La Guaira", "Lara", "Mérida", "Miranda", "Monagas", 
+  "Nueva Esparta", "Portuguesa", "Sucre", "Táchira", "Trujillo", 
+  "Yaracuy", "Zulia"
+];
 
 const Servicios: React.FC = () => {
   const { session } = useAuth();
@@ -19,14 +28,16 @@ const Servicios: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<"Todos" | "Plomería" | "Electricidad" | "Limpieza">("Todos");
+  const [selectedState, setSelectedState] = useState("Todos");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [isStateModalVisible, setIsStateModalVisible] = useState(false);
 
-  const categories: Array<"Todos" | "Plomería" | "Electricidad" | "Limpieza"> = [
-    "Todos",
-    "Plomería",
-    "Electricidad",
-    "Limpieza",
-  ];
+const categories = [
+  "Todos",
+  "Plomería",
+  "Electricidad",
+  "Limpieza",
+];
 
   useEffect(() => {
     if (session?.user) {
@@ -72,19 +83,31 @@ const Servicios: React.FC = () => {
   const filteredProviders = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
     return providers.filter((provider) => {
+      const isCurrentUserProvider =
+        provider.profile?.id === session?.user?.id || provider.id === session?.user?.id;
+
+      if (isCurrentUserProvider) return false;
+
       const matchesCategory =
         selectedCategory === "Todos"
           ? true
           : Array.isArray(provider.specialization)
             ? provider.specialization.includes(selectedCategory)
-            : provider.specialization === selectedCategory;
+            : typeof provider.specialization === 'string'
+              ? (provider.specialization as string).includes(selectedCategory)
+              : false;
+
+      const matchesState = 
+        selectedState === "Todos"
+          ? true
+          : provider.profile?.state === selectedState;
 
       const fullName = provider.profile?.full_name || "";
       const matchesQuery = query.length === 0 ? true : fullName.toLowerCase().includes(query);
 
-      return matchesCategory && matchesQuery;
+      return matchesCategory && matchesState && matchesQuery;
     });
-  }, [providers, searchQuery, selectedCategory]);
+  }, [providers, searchQuery, selectedCategory, selectedState, session?.user?.id]);
 
   const loadUnreadNotifications = async () => {
     try {
@@ -190,41 +213,103 @@ const Servicios: React.FC = () => {
         </View>
 
         <TouchableOpacity
-          style={styles.filterButton}
+          style={[styles.filterButton, { marginLeft: 10 }]}
           onPress={() => setIsFilterOpen((prev) => !prev)}
         >
           <Ionicons name="filter" size={18} color="#007AFF" />
-          <Text style={styles.filterText}>{selectedCategory}</Text>
+          <Text style={styles.filterText}>
+            {selectedCategory === "Todos" ? "Categoría" : selectedCategory}
+          </Text>
           <Ionicons name={isFilterOpen ? "chevron-up" : "chevron-down"} size={16} color="#007AFF" />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.filterButton, { marginLeft: 10 }]}
+          onPress={() => setIsStateModalVisible(true)}
+        >
+          <Ionicons name="location-outline" size={18} color="#007AFF" />
+          <Text style={styles.filterText}>
+            {selectedState === "Todos" ? "Estado" : selectedState}
+          </Text>
+          <Ionicons name="chevron-down" size={16} color="#007AFF" />
         </TouchableOpacity>
       </View>
 
-      {isFilterOpen && (
-        <View style={styles.filterOptions}>
-          {categories.map((category) => (
-            <TouchableOpacity
-              key={category}
-              style={[
-                styles.filterOption,
-                selectedCategory === category && styles.filterOptionActive,
-              ]}
-              onPress={() => {
-                setSelectedCategory(category);
-                setIsFilterOpen(false);
-              }}
+       {/* Services Filter Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={isFilterOpen}
+        onRequestClose={() => setIsFilterOpen(false)}
+      >
+        <View style={styles.modalCenteredView}>
+          <View style={styles.modalView}>
+            <Text style={styles.modalTitle}>Seleccionar Categoría</Text>
+            <FlatList
+              data={categories}
+              keyExtractor={(item) => item}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.modalItem}
+                  onPress={() => {
+                    setSelectedCategory(item as "Todos" | "Plomería" | "Electricidad" | "Limpieza");
+                    setIsFilterOpen(false);
+                  }}
+                >
+                  <Text style={[styles.modalItemText, selectedCategory === item && { color: "#007AFF", fontWeight: "bold" }]}>
+                    {item}
+                  </Text>
+                </TouchableOpacity>
+              )}
+              style={{ maxHeight: 400, width: "100%" }}
+            />
+             <TouchableOpacity
+              style={styles.modalButton}
+              onPress={() => setIsFilterOpen(false)}
             >
-              <Text
-                style={[
-                  styles.filterOptionText,
-                  selectedCategory === category && styles.filterOptionTextActive,
-                ]}
-              >
-                {category}
-              </Text>
+              <Text style={styles.modalButtonText}>Cerrar</Text>
             </TouchableOpacity>
-          ))}
+          </View>
         </View>
-      )}
+      </Modal>
+
+      {/* State Filter Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={isStateModalVisible}
+        onRequestClose={() => setIsStateModalVisible(false)}
+      >
+        <View style={styles.modalCenteredView}>
+          <View style={styles.modalView}>
+            <Text style={styles.modalTitle}>Seleccionar Estado</Text>
+            <FlatList
+              data={VENEZUELA_STATES}
+              keyExtractor={(item) => item}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.modalItem}
+                  onPress={() => {
+                    setSelectedState(item);
+                    setIsStateModalVisible(false);
+                  }}
+                >
+                  <Text style={[styles.modalItemText, selectedState === item && { color: "#007AFF", fontWeight: "bold" }]}>
+                    {item}
+                  </Text>
+                </TouchableOpacity>
+              )}
+              style={{ maxHeight: 400, width: "100%" }}
+            />
+             <TouchableOpacity
+              style={styles.modalButton}
+              onPress={() => setIsStateModalVisible(false)}
+            >
+              <Text style={styles.modalButtonText}>Cerrar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       {/* Provider List Section */}
       <View style={styles.providersSection}>
@@ -483,6 +568,51 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
   },
+  modalCenteredView: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.5)",
+  },
+  modalView: {
+    width: "80%",
+    backgroundColor: "white",
+    borderRadius: 20,
+    padding: 20,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    marginBottom: 15,
+  },
+  modalItem: {
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
+    width: "100%",
+  },
+  modalItemText: {
+    fontSize: 16,
+    textAlign: "center",
+  },
+  modalButton: {
+    marginTop: 15,
+    padding: 10,
+    width: '100%',
+    alignItems: 'center',
+    backgroundColor: '#f0f0f0',
+    borderRadius: 10
+  },
+  modalButtonText: {
+    color: '#333',
+    fontWeight: '600'
+  }
 });
 
 export default Servicios;

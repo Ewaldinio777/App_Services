@@ -13,6 +13,7 @@ import ProviderDetail from "./src/navigation/screens/Services/ProviderDetail";
 import BecomeProvider from "./src/navigation/screens/Services/BecomeProvider";
 import Notificaciones from "./src/navigation/screens/Services/Notificaciones";
 import ChatDetail from "./src/navigation/screens/Chats/ChatDetail";
+import ScheduleServiceScreen from "./src/navigation/screens/Chats/ScheduleServiceScreen";
 import { RootStackParamList } from "./src/navigation/types";
 
 export default function App() {
@@ -33,6 +34,7 @@ export default function App() {
         <Stack.Screen name="BecomeProvider" component={BecomeProvider} options={{ headerShown: true, title: 'Convertirse en Proveedor' }} />
         <Stack.Screen name="Notificaciones" component={Notificaciones} options={{ headerShown: true, title: 'Notificaciones' }} />
         <Stack.Screen name="ChatDetail" component={ChatDetail} options={{ headerShown: true, title: 'Chat' }} />
+        <Stack.Screen name="ScheduleService" component={ScheduleServiceScreen} options={{ headerShown: false }} />
       </Stack.Navigator>
     );
   }

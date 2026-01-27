@@ -8,15 +8,24 @@ import {
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
+  Modal,
+  FlatList,
 } from "react-native";
 import { useAuth } from "../../../context/AuthContext";
 import { supabase } from "@/src/lib/supabase-client";
 import { useNavigation } from "@react-navigation/native";
 
+const AVAILABLE_SERVICES = [
+  "Plomería",
+  "Electricidad",
+  "Limpieza",
+];
+
 const BecomeProvider: React.FC = () => {
   const { session } = useAuth();
   const navigation = useNavigation();
   const [submitting, setSubmitting] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
 
   const [formData, setFormData] = useState({
     id_number: "",
@@ -25,6 +34,21 @@ const BecomeProvider: React.FC = () => {
     experience: "",
     specialization: "",
   });
+
+  const toggleService = (service: string) => {
+    const current = formData.specialization
+      .split(",")
+      .map((s) => s.trim())
+      .filter((s) => s !== "");
+
+    let newServices;
+    if (current.includes(service)) {
+      newServices = current.filter((s) => s !== service);
+    } else {
+      newServices = [...current, service];
+    }
+    setFormData({ ...formData, specialization: newServices.join(", ") });
+  };
 
   const handleBecomeProvider = async () => {
     if (!session?.user) return;
@@ -113,14 +137,13 @@ const BecomeProvider: React.FC = () => {
         />
 
         <Text style={styles.label}>Especialización *</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Ej: Plomería, Electricidad, Limpieza"
-          value={formData.specialization}
-          onChangeText={(text) =>
-            setFormData({ ...formData, specialization: text })
-          }
-        />
+        <TouchableOpacity onPress={() => setModalVisible(true)}>
+          <View style={[styles.input, { justifyContent: "center" }]}>
+            <Text style={{ color: formData.specialization ? "#000" : "#ccc" }}>
+              {formData.specialization || "Seleccionar Servicios"}
+            </Text>
+          </View>
+        </TouchableOpacity>
 
         <Text style={styles.label}>Teléfono de contacto *</Text>
         <TextInput
@@ -169,6 +192,54 @@ const BecomeProvider: React.FC = () => {
           )}
         </TouchableOpacity>
       </View>
+
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={modalVisible}
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.modalCenteredView}>
+          <View style={styles.modalView}>
+            <Text style={styles.modalTitle}>Seleccionar Servicios</Text>
+            <FlatList
+              data={AVAILABLE_SERVICES}
+              keyExtractor={(item) => item}
+              renderItem={({ item }) => {
+                const isSelected = formData.specialization
+                  .split(",")
+                  .map((s) => s.trim())
+                  .includes(item);
+                return (
+                  <TouchableOpacity
+                    style={[
+                      styles.modalItem,
+                      isSelected && styles.modalItemSelected,
+                    ]}
+                    onPress={() => toggleService(item)}
+                  >
+                    <Text
+                      style={[
+                        styles.modalItemText,
+                        isSelected && styles.modalItemTextSelected,
+                      ]}
+                    >
+                      {item} {isSelected ? "✓" : ""}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              }}
+              style={{ maxHeight: 400, width: "100%" }}
+            />
+            <TouchableOpacity
+              style={styles.modalButton}
+              onPress={() => setModalVisible(false)}
+            >
+              <Text style={styles.modalButtonText}>Listo</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 };
@@ -226,6 +297,57 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontWeight: "bold",
     fontSize: 16,
+  },
+  modalCenteredView: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.5)",
+  },
+  modalView: {
+    width: "85%",
+    backgroundColor: "white",
+    borderRadius: 20,
+    padding: 20,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    marginBottom: 15,
+  },
+  modalItem: {
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
+    width: "100%",
+  },
+  modalItemSelected: {
+    backgroundColor: "#e6f7ff",
+  },
+  modalItemText: {
+    fontSize: 16,
+  },
+  modalItemTextSelected: {
+    fontWeight: "bold",
+    color: "#007AFF",
+  },
+  modalButton: {
+    marginTop: 20,
+    backgroundColor: "#007AFF",
+    padding: 10,
+    borderRadius: 20,
+    width: "100%",
+    alignItems: "center",
+  },
+  modalButtonText: {
+    color: "white",
+    fontWeight: "bold",
   },
 });
 
