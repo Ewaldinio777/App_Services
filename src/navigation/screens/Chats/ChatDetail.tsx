@@ -92,9 +92,19 @@ const MessageItem = React.memo(({ message, currentUserId }: { message: Message, 
       <Text style={[styles.messageText, isMine ? styles.myMessageText : styles.otherMessageText]}>
         {message.content}
       </Text>
-      <Text style={[styles.messageTime, isMine ? styles.myMessageTime : styles.otherMessageTime]}>
-        {formatMessageTime(message.created_at)}
-      </Text>
+      <View style={{ flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center' }}>
+        <Text style={[styles.messageTime, isMine ? styles.myMessageTime : styles.otherMessageTime]}>
+          {formatMessageTime(message.created_at)}
+        </Text>
+        {isMine && !isTemp && (
+          <Ionicons 
+            name={message.is_read ? "checkmark-done-outline" : "checkmark-outline"} 
+            size={14} 
+            color="#fff" 
+            style={{ marginLeft: 4, marginTop: 2, opacity: 0.8 }}
+          />
+        )}
+      </View>
     </View>
   );
 });
@@ -209,11 +219,38 @@ const ChatDetail: React.FC = () => {
             table: "messages", 
             filter: `chat_id=eq.${currentChatId}` 
           },
-          (payload) => {
+          async (payload) => {
             const newMessage = payload.new as Message;
+            // Si el mensaje viene de la otra persona, márcalo como leído inmediatamente
             if (newMessage.sender_id !== session.user.id) {
-              mergeMessages([newMessage]);
+               await supabase
+                   .from('messages')
+                   .update({ is_read: true })
+                   .eq('id', newMessage.id);
+               
+               // Asumimos localmente que ya está leído para mostrarlo en UI
+               newMessage.is_read = true; 
+               mergeMessages([newMessage]);
+            } else {
+               // Si es mi mensaje, puede que venga de otro dispositivo mio, o es el eco del INSERT
+               // Si es el eco, ya lo tenemos (posiblemente) via optimista, pero mergeMessages lo maneja con ID
+               mergeMessages([newMessage]);
             }
+          }
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "messages",
+            filter: `chat_id=eq.${currentChatId}`
+          },
+          (payload) => {
+            const updatedMessage = payload.new as Message;
+            setMessages(prev =>
+              prev.map(msg => msg.id === updatedMessage.id ? updatedMessage : msg)
+            );
           }
         )
         .subscribe();
@@ -230,6 +267,19 @@ const ChatDetail: React.FC = () => {
     if (!currentChatId) return;
 
     try {
+      // Marcar mensajes no leídos como leídos si no son míos
+      // Esto solo lo hacemos una vez al cargar mensajes, o si queremos, podemos hacerlo en un efecto separado
+      // que busque mensajes no leídos donde yo no soy el sender.
+      // Lo hacemos antes de cargar para que al cargar ya vengan actualizados, o hacemos el update y luego en local state
+      
+      const { error: updateError } = await supabase
+        .from('messages')
+        .update({ is_read: true })
+        .eq('chat_id', currentChatId)
+        .neq('sender_id', session.user.id) // Mensajes que NO envié yo
+        .eq('is_read', false); 
+
+      // Ahora cargamos los mensajes
       const { data, error } = await supabase
         .from("messages")
         .select("*")
@@ -338,6 +388,7 @@ const ChatDetail: React.FC = () => {
       sender_id: session.user.id,
       content: trimmed,
       created_at: isoString, 
+      is_read: false,
     };
 
     setMessages(prev => [tempMessage, ...prev]);

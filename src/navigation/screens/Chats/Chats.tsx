@@ -15,6 +15,8 @@ interface ChatWithDetails extends Chat {
   other_participant_provider?: Provider | null;
   last_message?: string;
   last_message_at?: string;
+  last_message_sender_id?: string;
+  last_message_is_read?: boolean;
 }
 
 const Chats: React.FC = () => {
@@ -149,7 +151,7 @@ const Chats: React.FC = () => {
 
           const { data: lastMessageData } = await supabase
             .from('messages')
-            .select('content, created_at')
+            .select('content, created_at, sender_id, is_read')
             .eq('chat_id', chat.id)
             .order('created_at', { ascending: false })
             .limit(1)
@@ -161,6 +163,8 @@ const Chats: React.FC = () => {
             other_participant_provider: providerData || null,
             last_message: lastMessageData?.content || undefined,
             last_message_at: lastMessageData?.created_at || chat.created_at,
+            last_message_sender_id: lastMessageData?.sender_id,
+            last_message_is_read: lastMessageData?.is_read,
           };
         })
       );
@@ -207,7 +211,7 @@ const Chats: React.FC = () => {
       // Obtener último mensaje
       const { data: lastMsg } = await supabase
         .from('messages')
-        .select('content, created_at')
+        .select('content, created_at, sender_id, is_read')
         .eq('chat_id', chatId)
         .order('created_at', { ascending: false })
         .limit(1)
@@ -217,7 +221,9 @@ const Chats: React.FC = () => {
         ...chatData,
         other_participant: profileData || undefined,
         last_message: lastMsg?.content,
-        last_message_at: lastMsg?.created_at || chatData.created_at
+        last_message_at: lastMsg?.created_at || chatData.created_at,
+        last_message_sender_id: lastMsg?.sender_id,
+        last_message_is_read: lastMsg?.is_read,
       };
 
       setChats(prev => {
@@ -261,6 +267,8 @@ const Chats: React.FC = () => {
 
               chatToUpdate.last_message = newMessage.content;
               chatToUpdate.last_message_at = newMessage.created_at;
+              chatToUpdate.last_message_sender_id = newMessage.sender_id;
+              chatToUpdate.last_message_is_read = newMessage.is_read || false;
 
               // Mover el chat actualizado al principio de la lista
               updatedChats.splice(chatIndex, 1);
@@ -271,6 +279,48 @@ const Chats: React.FC = () => {
           } else {
             // Si el chat no está en la lista (nuevo chat o no cargado), lo traemos
             fetchAndAddNewChat(newMessage.chat_id);
+          }
+        }
+      )
+      .subscribe();
+
+    const messagesUpdateSubscription = supabase
+      .channel('public:messages_update')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'messages',
+        },
+        (payload) => {
+          const updatedMessage = payload.new as Message;
+          const chatIndex = chatsRef.current.findIndex(c => c.id === updatedMessage.chat_id);
+          
+          if (chatIndex !== -1) {
+             setChats(prevChats => {
+               const chat = prevChats[chatIndex];
+               // Update only if this matches the last known message timestamp or content, 
+               // OR simplified: assume if an update happens in this chat, we might want to refresh.
+               // But usually we just care if the LAST message was updated (e.g. read status).
+               // We don't have message IDs for the last message in ChatWithDetails, strictly speaking,
+               // but we can check if the time matches or just update it if it's the latest.
+               
+               // Better approach: Check if updated message IS the last message.
+               if (updatedMessage.created_at === chat.last_message_at) { // rudimentary check
+                  const updatedChats = [...prevChats];
+                  updatedChats[chatIndex] = {
+                      ...chat,
+                      last_message_is_read: updatedMessage.is_read
+                  };
+                  return updatedChats;
+               }
+               
+               // If it's not the same timestamp, maybe the last message changed? 
+               // Unlikely for READ receipts, they usually apply to the recent messages.
+               // We'll trust the rudimentary check for now or just force reload if needed.
+               return prevChats;
+             });
           }
         }
       )
@@ -456,9 +506,26 @@ const Chats: React.FC = () => {
                   )}
                 </View>
                 <View style={styles.chatFooter}>
-                  <Text style={styles.chatLastMessage} numberOfLines={1} ellipsizeMode="tail">
-                    {chat.last_message || 'Inicia una conversación'}
-                  </Text>
+                  <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
+                    {chat.last_message_sender_id === session?.user.id && (
+                      <Ionicons
+                        name={chat.last_message_is_read ? "checkmark-done-outline" : "checkmark-outline"}
+                        size={16}
+                        color={chat.last_message_is_read ? "#34B7F1" : "#666"}
+                        style={{ marginRight: 4 }}
+                      />
+                    )}
+                    <Text 
+                      style={[
+                        styles.chatLastMessage, 
+                        (chat.last_message_sender_id !== session?.user.id && !chat.last_message_is_read) && { fontWeight: 'bold', color: '#000' }
+                      ]} 
+                      numberOfLines={1} 
+                      ellipsizeMode="tail"
+                    >
+                      {chat.last_message || 'Inicia una conversación'}
+                    </Text>
+                  </View>
                 </View>
               </View>
             </TouchableOpacity>

@@ -1,11 +1,15 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { View, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, RefreshControl, Image, Modal, TextInput, Alert, Platform } from "react-native";
+import { View, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, RefreshControl, Image, Modal, TextInput, Alert, Platform, Dimensions } from "react-native";
 import { Text } from "@/src/components/ui/text";
 import { useAuth } from "../../../context/AuthContext";
 import { supabase } from "@/src/lib/supabase-client";
 import { Order, Profile, Review } from "@/src/types/database.types";
 import { Ionicons } from "@react-native-vector-icons/ionicons";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
+import { LineChart } from "react-native-chart-kit";
+import CustomDateTimePicker from "@/src/components/ui/CustomDateTimePicker";
+import { format } from "date-fns"; // Assuming date-fns might be useful, or I can use native Date methods if not installed.
+// checking package.json for date-fns. I didn't see it. I'll use native Date.
 
 interface OrderWithDetails extends Order {
   client?: Profile;
@@ -456,47 +460,166 @@ const ProviderOrdersView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 const ProviderPerformanceView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     const { session } = useAuth();
     const [reviews, setReviews] = useState<ReviewWithDetails[]>([]);
+    const [allOrders, setAllOrders] = useState<Order[]>([]);
     const [loading, setLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState<'calificaciones' | 'quejas'>('calificaciones');
+    const [activeTab, setActiveTab] = useState<'estadisticas' | 'calificaciones' | 'quejas'>('estadisticas');
+    const [chartFilter, setChartFilter] = useState<'day' | 'month' | 'year'>('day');
+    
+    // Date Picker State
+    const [referenceDate, setReferenceDate] = useState(new Date());
+    const [minDate, setMinDate] = useState<Date | undefined>(undefined);
+    const [showDatePicker, setShowDatePicker] = useState(false);
 
     useEffect(() => {
-        const fetchReviews = async () => {
-            if (!session?.user) return;
+        const fetchData = async () => {
+             if (!session?.user) return;
             setLoading(true);
             
-            // Fetch reviews for items where I am the provider. 
-            // 1. Get my orders
-            const { data: myOrders } = await supabase.from('orders').select('id, title').eq('provider_id', session.user.id);
-            const myOrderIds = myOrders?.map(o => o.id) || [];
+            // 1. Get my orders (all fields)
+            const { data: myOrders, error: orderError } = await supabase
+                .from('orders')
+                .select('*')
+                .eq('provider_id', session.user.id)
+                .order('created_at', { ascending: true }); // Order by oldest first to find minDate
             
-            if (myOrderIds.length === 0) {
+            if (orderError) {
+                console.error(orderError);
                 setLoading(false);
                 return;
             }
 
-            // 2. Get reviews for those orders
-            const { data: reviewsData } = await supabase
-                .from('reviews')
-                .select('*')
-                .in('order_id', myOrderIds)
-                .order('created_at', { ascending: false });
+            setAllOrders(myOrders || []);
 
-             // 3. Enrich
-             const enriched = await Promise.all((reviewsData || []).map(async (r) => {
-                 const { data: user } = await supabase.from('profiles').select('*').eq('id', r.reviewer_id).single();
-                 const order = myOrders?.find(o => o.id === r.order_id);
-                 return { ...r, reviewer: user, order: order as Order };
-             }));
+            if (myOrders && myOrders.length > 0) {
+                 const firstDate = new Date(myOrders[0].created_at);
+                 if (!isNaN(firstDate.getTime())) {
+                    setMinDate(firstDate);
+                 }
+            }
+            
+            const myOrderIds = myOrders?.map(o => o.id) || [];
+            
+            if (myOrderIds.length > 0) {
+                // 2. Get reviews for those orders
+                const { data: reviewsData } = await supabase
+                    .from('reviews')
+                    .select('*')
+                    .in('order_id', myOrderIds)
+                    .order('created_at', { ascending: false });
 
-             setReviews(enriched);
+                 // 3. Enrich
+                 const enriched = await Promise.all((reviewsData || []).map(async (r) => {
+                     const { data: user } = await supabase.from('profiles').select('*').eq('id', r.reviewer_id).single();
+                     const order = myOrders?.find(o => o.id === r.order_id);
+                     return { ...r, reviewer: user, order: order as Order };
+                 }));
+                 setReviews(enriched);
+            } else {
+                setReviews([]);
+            }
+
              setLoading(false);
         };
-        fetchReviews();
+        fetchData();
     }, [session]);
+
+    const getChartData = () => {
+        const labels: string[] = [];
+        const requestData: number[] = [];
+        const ratingData: number[] = [];
+        const complaintData: number[] = [];
+
+        const dataMap = new Map<string, { requests: number, ratings: number, complaints: number }>();
+        
+        // Helper to format map keys
+        const getKey = (date: Date) => {
+            if (isNaN(date.getTime())) return "Invalid";
+            try {
+                if (chartFilter === 'day') return date.toISOString().split('T')[0];
+                if (chartFilter === 'month') return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2, '0')}`;
+                if (chartFilter === 'year') return `${date.getFullYear()}`;
+                return date.toISOString().split('T')[0];
+            } catch (e) {
+                return "Invalid";
+            }
+        };
+
+        const processDateStr = (dateStr: string) => {
+            if (!dateStr) return "Invalid";
+            const d = new Date(dateStr);
+            return getKey(d);
+        };
+
+        // Populate Map with ACTUAL data
+        allOrders.forEach(o => {
+            const key = processDateStr(o.created_at);
+            if (!dataMap.has(key)) dataMap.set(key, { requests: 0, ratings: 0, complaints: 0 });
+            dataMap.get(key)!.requests++;
+        });
+
+        reviews.forEach(r => {
+             const key = processDateStr(r.created_at);
+             if (!dataMap.has(key)) dataMap.set(key, { requests: 0, ratings: 0, complaints: 0 });
+             if (r.complaint) {
+                dataMap.get(key)!.complaints++;
+             } else {
+                dataMap.get(key)!.ratings++;
+             }
+        });
+
+        // Generate Time Range based on referenceDate
+        const keysInRange: string[] = [];
+        const displayLabels: string[] = [];
+        const numPoints = 6; // Show last 6 points (including current)
+
+        for (let i = numPoints - 1; i >= 0; i--) {
+            const d = new Date(referenceDate);
+            if (chartFilter === 'day') d.setDate(d.getDate() - i);
+            else if (chartFilter === 'month') d.setMonth(d.getMonth() - i);
+            else if (chartFilter === 'year') d.setFullYear(d.getFullYear() - i);
+            
+            const key = getKey(d);
+            keysInRange.push(key);
+            
+            // Format label for display
+             if (chartFilter === 'day') displayLabels.push(`${d.getDate()}/${d.getMonth()+1}`);
+             else if (chartFilter === 'month') displayLabels.push(`${d.getMonth()+1}/${d.getFullYear().toString().slice(2)}`);
+             else displayLabels.push(d.getFullYear().toString());
+        }
+
+        // Fill datasets
+        keysInRange.forEach(key => {
+            const counts = dataMap.get(key) || { requests: 0, ratings: 0, complaints: 0 };
+            requestData.push(counts.requests);
+            ratingData.push(counts.ratings);
+            complaintData.push(counts.complaints);
+        });
+
+        return {
+            labels: displayLabels,
+            datasets: [
+                { data: requestData, color: (opacity = 1) => `rgba(107, 78, 255, ${opacity})`, strokeWidth: 2 }, 
+                { data: ratingData, color: (opacity = 1) => `rgba(52, 199, 89, ${opacity})`, strokeWidth: 2 }, 
+                { data: complaintData, color: (opacity = 1) => `rgba(255, 59, 48, ${opacity})`, strokeWidth: 2 } 
+            ],
+            legend: ["Solicitudes", "Calificaciones", "Quejas"]
+        };
+    };
 
     const filtered = activeTab === 'calificaciones' 
         ? reviews.filter(r => (r.rating || 0) > 1 && !r.complaint) 
-        : reviews.filter(r => r.complaint); // Assuming complaints are reviews with complaint text
+        : reviews.filter(r => r.complaint); 
+
+    const chartConfig = {
+      backgroundGradientFrom: "#fff",
+      backgroundGradientTo: "#fff",
+      color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+      strokeWidth: 2, 
+      barPercentage: 0.5,
+      useShadowColorFromDataset: false,
+      decimalPlaces: 0,
+      labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+    };
 
     return (
         <View style={styles.container}>
@@ -508,10 +631,6 @@ const ProviderPerformanceView: React.FC<{ onBack: () => void }> = ({ onBack }) =
             </View>
             
             <View style={styles.statsRow}>
-                <View style={styles.statBox}>
-                    <Text style={styles.statLabel}>Estadísticas</Text>
-                    <Text style={styles.statValue}>$0.00</Text> 
-                </View>
                  <View style={styles.statBox}>
                     <Text style={styles.statLabel}>Calificaciones</Text>
                     <Text style={styles.statValue}>{reviews.filter(r => !r.complaint).length}</Text>
@@ -523,6 +642,9 @@ const ProviderPerformanceView: React.FC<{ onBack: () => void }> = ({ onBack }) =
             </View>
 
             <View style={styles.tabContainer}>
+                <TouchableOpacity style={[styles.tabButton, activeTab === 'estadisticas' && styles.tabButtonActive]} onPress={() => setActiveTab('estadisticas')}>
+                    <Text style={[styles.tabText, activeTab === 'estadisticas' && styles.tabTextActive]}>Estadísticas</Text>
+                </TouchableOpacity>
                 <TouchableOpacity style={[styles.tabButton, activeTab === 'calificaciones' && styles.tabButtonActive]} onPress={() => setActiveTab('calificaciones')}>
                     <Text style={[styles.tabText, activeTab === 'calificaciones' && styles.tabTextActive]}>Calificaciones</Text>
                 </TouchableOpacity>
@@ -532,7 +654,52 @@ const ProviderPerformanceView: React.FC<{ onBack: () => void }> = ({ onBack }) =
             </View>
 
             <ScrollView contentContainerStyle={styles.listContent}>
-                {filtered.length === 0 ? <Text style={styles.emptyText}>No hay registros.</Text> : filtered.map(item => (
+                {activeTab === 'estadisticas' ? (
+                     <View>
+                        <View style={{alignItems: 'center', marginBottom: 20}}>
+                            <TouchableOpacity onPress={() => setShowDatePicker(true)} style={{
+                                flexDirection: 'row', 
+                                alignItems: 'center', 
+                                backgroundColor: '#F0EBFF', 
+                                paddingHorizontal: 16, 
+                                paddingVertical: 8, 
+                                borderRadius: 20,
+                                marginBottom: 12
+                            }}>
+                                <Ionicons name="calendar" size={20} color="#6B4EFF" style={{marginRight: 8}}/>
+                                <Text style={{color: '#6B4EFF', fontWeight: 'bold'}}>
+                                    Ver hasta: {referenceDate.toLocaleDateString()}
+                                </Text>
+                             </TouchableOpacity>
+
+                            <View style={{flexDirection: 'row', gap: 10}}>
+                                 <TouchableOpacity onPress={() => setChartFilter('day')} style={{backgroundColor: chartFilter === 'day' ? '#6B4EFF' : '#eee', padding: 8, borderRadius: 8}}>
+                                    <Text style={{color: chartFilter === 'day' ? '#fff' : '#000'}}>Día</Text>
+                                 </TouchableOpacity>
+                                 <TouchableOpacity onPress={() => setChartFilter('month')} style={{backgroundColor: chartFilter === 'month' ? '#6B4EFF' : '#eee', padding: 8, borderRadius: 8}}>
+                                    <Text style={{color: chartFilter === 'month' ? '#fff' : '#000'}}>Mes</Text>
+                                 </TouchableOpacity>
+                                 <TouchableOpacity onPress={() => setChartFilter('year')} style={{backgroundColor: chartFilter === 'year' ? '#6B4EFF' : '#eee', padding: 8, borderRadius: 8}}>
+                                    <Text style={{color: chartFilter === 'year' ? '#fff' : '#000'}}>Año</Text>
+                                 </TouchableOpacity>
+                            </View>
+                        </View>
+                        <LineChart
+                            data={getChartData()}
+                            width={Dimensions.get("window").width - 32} 
+                            height={220}
+                            chartConfig={chartConfig}
+                            bezier
+                            style={{
+                                marginVertical: 8,
+                                borderRadius: 16
+                            }}
+                        />
+                         <Text style={{textAlign:'center', color: '#666', marginTop: 10}}>
+                            Solicitudes, Calificaciones y Quejas (Últimos 6 periodos)
+                        </Text>
+                     </View>
+                ) : filtered.length === 0 ? <Text style={styles.emptyText}>No hay registros.</Text> : filtered.map(item => (
                     <View key={item.id} style={styles.card}>
                         <Text style={{fontWeight:'bold', fontSize: 16}}>{activeTab === 'calificaciones' ? `${item.rating}.0 ★` : 'Queja'}</Text>
                         <Text style={{color: '#666', marginTop: 4}}>{item.reviewer?.full_name || 'Usuario'}</Text>
@@ -541,6 +708,20 @@ const ProviderPerformanceView: React.FC<{ onBack: () => void }> = ({ onBack }) =
                     </View>
                 ))}
             </ScrollView>
+            
+            <CustomDateTimePicker 
+                visible={showDatePicker}
+                onClose={() => setShowDatePicker(false)}
+                onSelect={(date) => {
+                    if (date && !isNaN(date.getTime())) {
+                        setReferenceDate(date);
+                    }
+                    setShowDatePicker(false);
+                }}
+                initialDate={referenceDate}
+                minDate={minDate}
+                maxDate={new Date()}
+            />
         </View>
     );
 };

@@ -163,6 +163,40 @@ const categories = [
         </View>
 
         <View style={styles.headerRight}>
+          {!isProvider ? (
+            <TouchableOpacity
+              style={styles.becomeProviderButton}
+              onPress={() => navigation.navigate("BecomeProvider")}
+            >
+              <Ionicons name="briefcase" size={18} color="#fff" />
+              <Text style={styles.becomeProviderText}>¿Deseas ofrecer tus servicios?</Text>
+            </TouchableOpacity>
+          ) : (
+            <Text style={styles.providerLabel}>Proveedor de Servicio</Text>
+          )}
+        </View>
+      </View>
+
+      <View style={styles.searchContainer}>
+        <View style={styles.searchAndNotificationWrapper}>
+          <View style={[styles.searchInputWrapper, { flex: 1 }]}>
+            <Ionicons name="search" size={18} color="#9AA0A6" />
+            <TextInput
+              placeholder="Buscar por nombre"
+              placeholderTextColor="#9AA0A6"
+              style={styles.searchInput}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchQuery("")}
+                style={styles.clearButton}
+              >
+                <Ionicons name="close-circle" size={18} color="#9AA0A6" />
+              </TouchableOpacity>
+            )}
+          </View>
+          
           <TouchableOpacity
             style={styles.notificationButton}
             onPress={() => navigation.navigate("Notificaciones")}
@@ -176,46 +210,6 @@ const categories = [
               </View>
             )}
           </TouchableOpacity>
-
-          {!isProvider && (
-            <TouchableOpacity
-              style={styles.becomeProviderButton}
-              onPress={() => navigation.navigate("BecomeProvider")}
-            >
-              <Ionicons name="briefcase" size={18} color="#fff" />
-              <Text style={styles.becomeProviderText}>Ser Proveedor</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      </View>
-
-      {!isProvider && (
-        <TouchableOpacity 
-          style={styles.promptContainer} 
-          onPress={() => navigation.navigate("BecomeProvider")}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.promptText}>¿Deseas ofrecer tus servicios?</Text>
-        </TouchableOpacity>
-      )}
-
-      <View style={styles.searchContainer}>
-        <View style={styles.searchInputWrapper}>
-          <Ionicons name="search" size={18} color="#9AA0A6" />
-          <TextInput
-            placeholder="Buscar por nombre"
-            placeholderTextColor="#9AA0A6"
-            style={styles.searchInput}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery("")}
-              style={styles.clearButton}
-            >
-              <Ionicons name="close-circle" size={18} color="#9AA0A6" />
-            </TouchableOpacity>
-          )}
         </View>
 
         <View style={styles.filtersRow}>
@@ -376,7 +370,7 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
   },
   greetingContainer: {
     flex: 1,
@@ -441,6 +435,11 @@ const styles = StyleSheet.create({
   searchContainer: {
     paddingHorizontal: 20,
     marginBottom: 12,
+    gap: 10,
+  },
+  searchAndNotificationWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 10,
   },
   searchInputWrapper: {
@@ -623,6 +622,11 @@ const styles = StyleSheet.create({
   modalButtonText: {
     color: '#333',
     fontWeight: '600'
+  },
+  providerLabel: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#000',
   }
 });
 

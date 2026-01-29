@@ -16,6 +16,8 @@ interface CustomDateTimePickerProps {
     onClose: () => void;
     onSelect: (date: Date) => void;
     initialDate?: Date;
+    minDate?: Date;
+    maxDate?: Date;
 }
 
 const DAYS_OF_WEEK = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
@@ -28,7 +30,9 @@ export default function CustomDateTimePicker({
     visible, 
     onClose, 
     onSelect, 
-    initialDate = new Date() 
+    initialDate = new Date(),
+    minDate,
+    maxDate
 }: CustomDateTimePickerProps) {
     const [selectedDate, setSelectedDate] = useState(initialDate);
     const [currentMonth, setCurrentMonth] = useState(initialDate.getMonth());
@@ -73,7 +77,41 @@ export default function CustomDateTimePicker({
         return days;
     };
 
+    const isDateDisabled = (day: number) => {
+        if (!day) return true;
+        // Validate inputs
+        if (isNaN(currentYear) || isNaN(currentMonth)) return true;
+        
+        const dateToCheck = new Date(currentYear, currentMonth, day);
+        if (isNaN(dateToCheck.getTime())) return true;
+
+        dateToCheck.setHours(23, 59, 59, 999); 
+
+        if (minDate && !isNaN(minDate.getTime())) {
+            const min = new Date(minDate);
+            min.setHours(0, 0, 0, 0);
+            if (dateToCheck < min) return true;
+        }
+
+        if (maxDate && !isNaN(maxDate.getTime())) {
+            const max = new Date(maxDate);
+            max.setHours(23, 59, 59, 999);
+            const checkStart = new Date(currentYear, currentMonth, day);
+            checkStart.setHours(0, 0, 0, 0);
+             
+            if (checkStart > max) return true;
+        }
+
+        return false;
+    };
+
     const handlePrevMonth = () => {
+        const prevDate = new Date(currentYear, currentMonth - 1, 1);
+        // Allow going back if the end of previous month is not before minDate
+        const prevMonthEnd = new Date(currentYear, currentMonth, 0);
+        
+        if (minDate && prevMonthEnd < minDate) return; 
+
         if (currentMonth === 0) {
             setCurrentMonth(11);
             setCurrentYear(currentYear - 1);
@@ -83,6 +121,9 @@ export default function CustomDateTimePicker({
     };
 
     const handleNextMonth = () => {
+        const nextMonthStart = new Date(currentYear, currentMonth + 1, 1);
+        if (maxDate && nextMonthStart > maxDate) return;
+
         if (currentMonth === 11) {
             setCurrentMonth(0);
             setCurrentYear(currentYear + 1);
@@ -92,6 +133,7 @@ export default function CustomDateTimePicker({
     };
 
     const handleDateSelect = (day: number) => {
+        if (isDateDisabled(day)) return;
         const newDate = new Date(selectedDate);
         newDate.setFullYear(currentYear);
         newDate.setMonth(currentMonth);
@@ -104,15 +146,19 @@ export default function CustomDateTimePicker({
     };
 
     const handleConfirm = () => {
-        // Parse time string '10:00 AM'
-        const [timePart, modifier] = selectedTime.split(' ');
-        let [hours, minutes] = timePart.split(':').map(Number);
-        
-        if (modifier === 'PM' && hours < 12) hours += 12;
-        if (modifier === 'AM' && hours === 12) hours = 0;
-
         const finalDate = new Date(selectedDate);
-        finalDate.setHours(hours, minutes, 0, 0);
+
+        if (selectedTime) {
+             const [timePart, modifier] = selectedTime.split(' ');
+             if (timePart) {
+                let [hours, minutes] = timePart.split(':').map(Number);
+                if (!isNaN(hours) && !isNaN(minutes)) {
+                    if (modifier === 'PM' && hours < 12) hours += 12;
+                    if (modifier === 'AM' && hours === 12) hours = 0;
+                     finalDate.setHours(hours, minutes, 0, 0);
+                }
+             }
+        }
         
         onSelect(finalDate);
         onClose();
@@ -167,7 +213,9 @@ export default function CustomDateTimePicker({
                                 ))}
                             </View>
                             <View style={styles.daysGrid}>
-                                {generateCalendarDays().map((day, index) => (
+                                {generateCalendarDays().map((day, index) => {
+                                    const disabled = day === null || (day && isDateDisabled(day));
+                                    return (
                                     <TouchableOpacity
                                         key={index}
                                         style={[
@@ -176,16 +224,17 @@ export default function CustomDateTimePicker({
                                             day && isDateSelected(day) && styles.selectedDayCell
                                         ]}
                                         onPress={() => day && handleDateSelect(day)}
-                                        disabled={day === null}
+                                        disabled={!!disabled}
                                     >
                                         <Text style={[
                                             styles.dayText,
-                                            day && isDateSelected(day) && styles.selectedDayText
+                                            day && isDateSelected(day) && styles.selectedDayText,
+                                            disabled && styles.disabledDayText
                                         ]}>
                                             {day}
                                         </Text>
                                     </TouchableOpacity>
-                                ))}
+                                )})}
                             </View>
                         </View>
 
@@ -322,6 +371,9 @@ const styles = StyleSheet.create({
     selectedDayText: {
         color: '#fff',
         fontWeight: 'bold',
+    },
+    disabledDayText: {
+        color: '#ccc',
     },
     timeSlot: {
         paddingVertical: 10,

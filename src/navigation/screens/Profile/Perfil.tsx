@@ -3,15 +3,20 @@ import { View, ScrollView, StyleSheet, TouchableOpacity, TextInput, Alert, Activ
 import { Text } from "@/src/components/ui/text";
 import { useAuth } from "../../../context/AuthContext";
 import { supabase } from "@/src/lib/supabase-client";
-import { Profile } from "@/src/types/database.types";
+import { Profile, Provider } from "@/src/types/database.types";
 import { Ionicons } from "@react-native-vector-icons/ionicons";
 
 const Perfil: React.FC = () => {
   const { session, logout } = useAuth();
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [providerData, setProviderData] = useState<Provider | null>(null); // Provider state
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [fullName, setFullName] = useState("");
+  
+  // Provider edit fields
+  const [description, setDescription] = useState("");
+  const [experience, setExperience] = useState("");
 
   useEffect(() => {
     if (session?.user) {
@@ -33,6 +38,27 @@ const Perfil: React.FC = () => {
       
       setProfile(data);
       setFullName(data?.full_name || "");
+
+      // If user is a provider, load provider details
+      if (data?.is_provider) {
+        const { data: provData, error: provError } = await supabase
+          .from('providers')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
+          
+        if (provError && provError.code !== 'PGRST116') {
+             // Ignore 'not found' if it's expected, otherwise log
+             console.error('Error loading provider details:', provError);
+        }
+
+        if (provData) {
+            setProviderData(provData);
+            setDescription(provData.description || "");
+            setExperience(provData.experience || "");
+        }
+      }
+
     } catch (error) {
       console.error('Error loading profile:', error);
     } finally {
@@ -44,12 +70,26 @@ const Perfil: React.FC = () => {
     try {
       if (!session?.user) return;
 
-      const { error } = await supabase
+      // Update Profile
+      const { error: profileError } = await supabase
         .from('profiles')
         .update({ full_name: fullName })
         .eq('id', session.user.id);
 
-      if (error) throw error;
+      if (profileError) throw profileError;
+
+      // If provider, update Provider details
+      if (profile?.is_provider) {
+          const { error: providerError } = await supabase
+            .from('providers')
+            .update({ 
+                description: description,
+                experience: experience
+            })
+            .eq('id', session.user.id);
+            
+          if (providerError) throw providerError;
+      }
 
       Alert.alert('Éxito', 'Perfil actualizado correctamente');
       setEditing(false);
@@ -87,6 +127,63 @@ const Perfil: React.FC = () => {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Información Personal</Text>
         
+
+        {/* Informacion de Proveedor */}
+        {profile?.is_provider && (
+            <>
+                <Text style={[styles.sectionTitle, { marginTop: 20 }]}>Perfil de Proveedor</Text>
+                
+                <View style={styles.fieldContainer}>
+                  <Text style={styles.label}>Calificación Promedio</Text>
+                  <View style={styles.ratingContainer}>
+                    <Ionicons name="star" size={20} color="#FFD700" />
+                    <Text style={styles.ratingValue}>
+                      {providerData?.rating ? providerData.rating.toFixed(1) : "N/A"}
+                    </Text>
+                    <Text style={styles.ratingCount}>
+                      ({providerData?.total_reviews || 0} reseñas)
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.fieldContainer}>
+                    <Text style={styles.label}>Descripción</Text>
+                    {editing ? (
+                        <TextInput
+                            style={[styles.input, styles.textArea]}
+                            value={description}
+                            onChangeText={setDescription}
+                            placeholder="Describe tus servicios..."
+                            multiline
+                            numberOfLines={4}
+                        />
+                    ) : (
+                        <Text style={styles.value}>
+                            {providerData?.description || "Sin descripción"}
+                        </Text>
+                    )}
+                </View>
+
+                <View style={styles.fieldContainer}>
+                    <Text style={styles.label}>Experiencia</Text>
+                    {editing ? (
+                        <TextInput
+                            style={[styles.input, styles.textArea]}
+                            value={experience}
+                            onChangeText={setExperience}
+                            placeholder="Cuéntanos tu experiencia laboral..."
+                            multiline
+                            numberOfLines={4}
+                        />
+                    ) : (
+                        <Text style={styles.value}>
+                            {providerData?.experience || "Sin experiencia especificada"}
+                        </Text>
+                    )}
+                </View>
+            </>
+        )}
+
         <View style={styles.fieldContainer}>
           <Text style={styles.label}>Nombre Completo</Text>
           {editing ? (
@@ -141,6 +238,8 @@ const Perfil: React.FC = () => {
               onPress={() => {
                 setEditing(false);
                 setFullName(profile?.full_name || "");
+                setDescription(providerData?.description || "");
+                setExperience(providerData?.experience || "");
               }}
             >
               <Ionicons name="close" size={20} color="#fff" />
@@ -237,6 +336,24 @@ const styles = StyleSheet.create({
     padding: 10,
     fontSize: 16,
     backgroundColor: '#f9f9f9',
+  },
+  textArea: {
+    minHeight: 80,
+    textAlignVertical: 'top',
+  },
+  ratingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  ratingValue: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  ratingCount: {
+    fontSize: 14,
+    color: '#666',
   },
   badgeContainer: {
     flexDirection: 'row',
