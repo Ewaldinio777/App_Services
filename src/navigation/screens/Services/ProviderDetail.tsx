@@ -37,6 +37,7 @@ const ProviderDetail: React.FC = () => {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [reviews, setReviews] = useState<ReviewWithOrder[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isReviewsExpanded, setIsReviewsExpanded] = useState(false);
 
   useEffect(() => {
     loadProviderDetails();
@@ -219,8 +220,15 @@ const ProviderDetail: React.FC = () => {
 
       {reviews.length > 0 && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Reseñas</Text>
-          {reviews.map((review) => (
+          <TouchableOpacity
+            style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: isReviewsExpanded ? 10 : 0 }}
+            onPress={() => setIsReviewsExpanded(!isReviewsExpanded)}
+          >
+            <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>Reseñas</Text>
+            <Ionicons name={isReviewsExpanded ? "chevron-up" : "chevron-down"} size={24} color="#666" />
+          </TouchableOpacity>
+
+          {isReviewsExpanded && reviews.map((review) => (
             <View key={review.id} style={styles.reviewItem}>
               <Text style={styles.reviewerName}>
                 {review.reviewer_profile?.full_name || "Usuario"}

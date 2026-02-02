@@ -21,15 +21,25 @@ const AVAILABLE_SERVICES = [
   "Limpieza",
 ];
 
+const ID_TYPES = ["V", "E", "P", "J", "G", "R"];
+const PHONE_PREFIXES = ["0414", "0424", "0412", "0422", "0416", "0426"];
+
+
 const BecomeProvider: React.FC = () => {
   const { session } = useAuth();
   const navigation = useNavigation();
   const [submitting, setSubmitting] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
 
+  // Split fields state
+  const [idType, setIdType] = useState("V");
+  const [idBody, setIdBody] = useState("");
+  const [phonePrefix, setPhonePrefix] = useState("0414");
+  const [phoneBody, setPhoneBody] = useState("");
+  const [showIdTypeModal, setShowIdTypeModal] = useState(false);
+  const [showPhonePrefixModal, setShowPhonePrefixModal] = useState(false);
+
   const [formData, setFormData] = useState({
-    id_number: "",
-    phone: "",
     description: "",
     experience: "",
     specialization: "",
@@ -53,6 +63,9 @@ const BecomeProvider: React.FC = () => {
   const handleBecomeProvider = async () => {
     if (!session?.user) return;
 
+    const fullIdNumber = `${idType}-${idBody}`;
+    const fullPhone = `${phonePrefix}-${phoneBody}`;
+
     const specializationArray = formData.specialization
       .split(",")
       .map((item) => item.trim())
@@ -60,8 +73,8 @@ const BecomeProvider: React.FC = () => {
 
     // Validaciones básicas
     if (
-      !formData.id_number ||
-      !formData.phone ||
+      !idBody ||
+      !phoneBody ||
       !formData.description ||
       specializationArray.length === 0
     ) {
@@ -77,7 +90,7 @@ const BecomeProvider: React.FC = () => {
       // Paso A: Actualizar is_provider en profiles
       const { error: profileError } = await supabase
         .from("profiles")
-        .update({ is_provider: true, phone: formData.phone })
+        .update({ is_provider: true, phone: fullPhone })
         .eq("id", session.user.id);
 
       if (profileError) throw profileError;
@@ -85,7 +98,7 @@ const BecomeProvider: React.FC = () => {
       // Paso B: Insertar datos en providers
       const { error: providerError } = await supabase.from("providers").insert({
         id: session.user.id,
-        id_number: formData.id_number,
+        id_number: fullIdNumber,
         description: formData.description,
         experience: formData.experience,
         specialization: specializationArray,
@@ -126,17 +139,45 @@ const BecomeProvider: React.FC = () => {
           Completa tus datos profesionales para empezar a ofrecer servicios.
         </Text>
 
-        <Text style={styles.label}>Cédula / RIF *</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="V-12345678"
-          value={formData.id_number}
-          onChangeText={(text) =>
-            setFormData({ ...formData, id_number: text })
-          }
-        />
+        <Text style={styles.label}>Cédula de Identidad *</Text>
+        <View style={styles.rowContainer}>
+          <TouchableOpacity
+            style={styles.prefixSelector}
+            onPress={() => setShowIdTypeModal(true)}
+          >
+            <Text style={styles.prefixText}>{idType}</Text>
+          </TouchableOpacity>
+          <TextInput
+            style={[styles.input, styles.flexInput]}
+            placeholder="Número de documento"
+            value={idBody}
+            onChangeText={setIdBody}
+            keyboardType="phone-pad"
+            maxLength={10}
+          />
+        </View>
 
-        <Text style={styles.label}>Especialización *</Text>
+
+
+        <Text style={styles.label}>Número de Teléfono *</Text>
+        <View style={styles.rowContainer}>
+          <TouchableOpacity
+            style={styles.prefixSelector}
+            onPress={() => setShowPhonePrefixModal(true)}
+          >
+            <Text style={styles.prefixText}>{phonePrefix}</Text>
+          </TouchableOpacity>
+          <TextInput
+            style={[styles.input, styles.flexInput]}
+            placeholder="Número de Teléfono"
+            keyboardType="phone-pad"
+            value={phoneBody}
+            onChangeText={setPhoneBody}
+            maxLength={7}
+          />
+        </View>
+
+                <Text style={styles.label}>Especialización *</Text>
         <TouchableOpacity onPress={() => setModalVisible(true)}>
           <View style={[styles.input, { justifyContent: "center" }]}>
             <Text style={{ color: formData.specialization ? "#000" : "#ccc" }}>
@@ -144,15 +185,6 @@ const BecomeProvider: React.FC = () => {
             </Text>
           </View>
         </TouchableOpacity>
-
-        <Text style={styles.label}>Teléfono de contacto *</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="0414-1234567"
-          keyboardType="phone-pad"
-          value={formData.phone}
-          onChangeText={(text) => setFormData({ ...formData, phone: text })}
-        />
 
         <Text style={styles.label}>Descripción de tu perfil *</Text>
         <TextInput
@@ -239,6 +271,74 @@ const BecomeProvider: React.FC = () => {
             </TouchableOpacity>
           </View>
         </View>
+      </Modal>
+
+      {/* ID Type Modal */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={showIdTypeModal}
+        onRequestClose={() => setShowIdTypeModal(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalCenteredView}
+          activeOpacity={1}
+          onPressOut={() => setShowIdTypeModal(false)}
+        >
+          <View style={styles.modalView}>
+            <Text style={styles.modalTitle}>Tipo de Documento</Text>
+            <FlatList
+              data={ID_TYPES}
+              keyExtractor={(item) => item}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.modalItem}
+                  onPress={() => {
+                    setIdType(item);
+                    setShowIdTypeModal(false);
+                  }}
+                >
+                  <Text style={styles.modalItemText}>{item}</Text>
+                </TouchableOpacity>
+              )}
+              style={{ width: "100%" }}
+            />
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Phone Prefix Modal */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={showPhonePrefixModal}
+        onRequestClose={() => setShowPhonePrefixModal(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalCenteredView}
+          activeOpacity={1}
+          onPressOut={() => setShowPhonePrefixModal(false)}
+        >
+          <View style={styles.modalView}>
+            <Text style={styles.modalTitle}>Código de Área</Text>
+            <FlatList
+              data={PHONE_PREFIXES}
+              keyExtractor={(item) => item}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.modalItem}
+                  onPress={() => {
+                    setPhonePrefix(item);
+                    setShowPhonePrefixModal(false);
+                  }}
+                >
+                  <Text style={styles.modalItemText}>{item}</Text>
+                </TouchableOpacity>
+              )}
+              style={{ width: "100%" }}
+            />
+          </View>
+        </TouchableOpacity>
       </Modal>
     </ScrollView>
   );
@@ -348,6 +448,27 @@ const styles = StyleSheet.create({
   modalButtonText: {
     color: "white",
     fontWeight: "bold",
+  },
+  rowContainer: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  prefixSelector: {
+    borderWidth: 1,
+    borderColor: "#ccc",
+    padding: 10,
+    borderRadius: 8,
+    backgroundColor: "#f9f9f9",
+    justifyContent: "center",
+    alignItems: "center",
+    width: 80,
+  },
+  prefixText: {
+    fontSize: 16,
+    color: "#333",
+  },
+  flexInput: {
+    flex: 1,
   },
 });
 

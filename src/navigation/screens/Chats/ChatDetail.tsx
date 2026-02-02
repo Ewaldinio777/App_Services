@@ -264,7 +264,7 @@ const ChatDetail: React.FC = () => {
   }, [currentChatId, session?.user]);
 
   const loadMessages = async () => {
-    if (!currentChatId) return;
+    if (!currentChatId || !session?.user) return;
 
     try {
       // Marcar mensajes no leídos como leídos si no son míos

@@ -1,9 +1,9 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { View, ScrollView, StyleSheet, TouchableOpacity, TextInput, Modal, FlatList } from "react-native";
 import { useAuth } from "../../../context/AuthContext";
 import { Text } from "@/src/components/ui/text";
 import { Ionicons } from '@react-native-vector-icons/ionicons';
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from "../../types";
 import { supabase } from "@/src/lib/supabase-client";
@@ -39,11 +39,17 @@ const categories = [
   "Limpieza",
 ];
 
+  useFocusEffect(
+    useCallback(() => {
+        loadProviders();
+    }, [])
+  );
+
   useEffect(() => {
     if (session?.user) {
       loadUserProfile();
       loadUnreadNotifications();
-      loadProviders();
+      // loadProviders(); // Now called in useFocusEffect
       
       // Subscribe to notifications changes
       const subscription = supabase
@@ -128,7 +134,7 @@ const categories = [
 
   const loadProviders = async () => {
     try {
-      setLoading(true);
+      // setLoading(true); // Removing setLoading(true) to avoid full flicker on every focus
       const { data, error } = await supabase
         .from('providers')
         .select(`
@@ -142,7 +148,7 @@ const categories = [
     } catch (error) {
       console.error('Error loading providers:', error);
     } finally {
-      setLoading(false);
+      if (loading) setLoading(false); // Only unset loading if it was initially true (first load)
     }
   };
 
@@ -352,7 +358,7 @@ const categories = [
                   style={styles.messageButton}
                   onPress={() => navigation.navigate("ProviderDetail", { providerId: provider.id })}
                 >
-                  <Text style={styles.messageButtonText}>Mensaje</Text>
+                  <Text style={styles.messageButtonText}>Ver Perfil</Text>
                 </TouchableOpacity>
               </View>
             </TouchableOpacity>

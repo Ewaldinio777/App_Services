@@ -107,6 +107,11 @@ const ClientOrdersView: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
       return;
     }
 
+    if (!comment || comment.trim() === "") {
+      Alert.alert("Error", "El comentario es obligatorio para realizar una calificación.");
+      return;
+    }
+
     try {
       setSubmitting(true);
       const { error } = await supabase.from('reviews').insert({
