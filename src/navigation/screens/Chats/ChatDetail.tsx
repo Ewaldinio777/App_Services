@@ -412,6 +412,69 @@ const ChatDetail: React.FC = () => {
         setMessages(prev => 
           prev.map(msg => msg.id === tempId ? data : msg)
         );
+
+        // --- NOTIFICATION LOGIC ---
+        // Notify the recipient
+        if (otherParticipant?.id) {
+           const { data: myProfile } = await supabase.from('profiles').select('full_name').eq('id', session.user.id).single();
+           const myName = myProfile?.full_name || "Un usuario";
+
+           // 1. Check for recent unread notification from this chat
+           const { data: recentNotif } = await supabase
+               .from('notifications')
+               .select('*')
+               .eq('user_id', otherParticipant.id)
+               .eq('type', 'chat')
+               .eq('related_id', targetChatId!) 
+               .eq('is_read', false)
+               .order('created_at', { ascending: false })
+               .limit(1)
+               .single();
+
+           let shouldUpdate = false;
+           let newCount = 1;
+
+           if (recentNotif) {
+                const lastTime = new Date(recentNotif.created_at).getTime();
+                const diffHours = (new Date().getTime() - lastTime) / (1000 * 60 * 60);
+
+                if (diffHours < 1) {
+                    shouldUpdate = true;
+                    // Extract count
+                    const match = recentNotif.body.match(/Tienes (\d+) nuevos mensajes/);
+                    if (match) {
+                        newCount = parseInt(match[1]) + 1;
+                    } else if (recentNotif.body.includes("Tienes un nuevo mensaje")) {
+                        newCount = 2;
+                    } else {
+                        // If checking body fails, default to +1 assuming it was at least 1? 
+                        // Or just start counting? Let's assume 2 to be safe or parse carefully.
+                        // Actually if body format changed, fallback to "Tienes 2..."
+                        newCount = 2;
+                    }
+                }
+           }
+
+           if (shouldUpdate && recentNotif) {
+               await supabase
+                   .from('notifications')
+                   .update({
+                       body: `Tienes ${newCount} nuevos mensajes de ${myName}.`,
+                       created_at: new Date().toISOString() // Refresh time
+                   })
+                   .eq('id', recentNotif.id);
+           } else {
+               await supabase.from('notifications').insert({
+                  user_id: otherParticipant.id,
+                  title: "Nuevo Mensaje",
+                  body: `Tienes un nuevo mensaje de ${myName}.`,
+                  type: 'chat',
+                  related_id: targetChatId!,
+                  is_read: false
+               });
+           }
+        }
+        // --------------------------
       }
     } catch (error) {
       console.error("Error sending message:", error);

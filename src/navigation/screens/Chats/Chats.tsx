@@ -458,7 +458,7 @@ const Chats: React.FC = () => {
           )}
 
           <TouchableOpacity style={styles.plusButton} onPress={() => setIsFilterOpen((prev) => !prev)}>
-            <Ionicons name="add" size={22} color="#fff" />
+            <Ionicons name="filter" size={22} color="#fff" />
           </TouchableOpacity>
         </View>
 

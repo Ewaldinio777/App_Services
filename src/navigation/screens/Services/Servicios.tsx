@@ -42,6 +42,7 @@ const categories = [
   useFocusEffect(
     useCallback(() => {
         loadProviders();
+        loadUnreadNotifications();
     }, [])
   );
 
@@ -53,10 +54,11 @@ const categories = [
       
       // Subscribe to notifications changes
       const subscription = supabase
-        .channel('notifications_changes')
+        .channel('notifications_badge_count')
         .on('postgres_changes', 
           { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${session.user.id}` },
-          () => {
+          (payload) => {
+            console.log("Notification change detected!", payload);
             loadUnreadNotifications();
           }
         )

@@ -123,6 +123,22 @@ export default function ScheduleServiceScreen() {
 
         if (error) throw error;
 
+        // --- NOTIFICATION LOGIC ---
+        // Notify Provider about New Request
+        // We need client name
+        const { data: clientProfile } = await supabase.from('profiles').select('full_name').eq('id', session?.user.id).single();
+        const clientName = clientProfile?.full_name || "Un usuario";
+
+        await supabase.from('notifications').insert({
+              user_id: provider.id,
+              title: "¡Nueva Solicitud de Servicio!",
+              body: `${clientName} solicita un servicio de ${requestTitle}. Responde antes de que expire.`,
+              type: 'order',
+              related_id: provider.id, // Or orderId if we returned it, but let's point to general orders or keep generic
+              is_read: false
+        });
+        // --------------------------
+
         Alert.alert("Éxito", "Tu solicitud ha sido enviada.", [
             { text: "OK", onPress: () => navigation.navigate("MainTabs", { screen: "Ordenes" }) }
         ]);

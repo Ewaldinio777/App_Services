@@ -5,7 +5,7 @@ import { useAuth } from "../../../context/AuthContext";
 import { supabase } from "@/src/lib/supabase-client";
 import { Order, Profile, Review } from "@/src/types/database.types";
 import { Ionicons } from "@react-native-vector-icons/ionicons";
-import { useNavigation, useFocusEffect } from "@react-navigation/native";
+import { useNavigation, useFocusEffect, useRoute } from "@react-navigation/native";
 import { LineChart } from "react-native-chart-kit";
 import CustomDateTimePicker from "@/src/components/ui/CustomDateTimePicker";
 import { format } from "date-fns"; // Assuming date-fns might be useful, or I can use native Date methods if not installed.
@@ -124,6 +124,21 @@ const ClientOrdersView: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
 
       if (error) throw error;
 
+      // --- NOTIFICATION LOGIC ---
+      // Notify Provider about Review/Confirmation
+      const { data: clientProfile } = await supabase.from('profiles').select('full_name').eq('id', session?.user.id).single();
+      const clientName = clientProfile?.full_name || "Un cliente";
+      
+      await supabase.from('notifications').insert({
+          user_id: selectedOrder.provider_id,
+          title: "¡Trabajo completado!",
+          body: `${clientName} ha confirmado el servicio y te ha dejado una calificación.`,
+          type: 'review',
+          related_id: selectedOrder.id,
+          is_read: false
+      });
+      // --------------------------
+
       Alert.alert("Éxito", "Gracias por tu calificación.");
       setRatingModalVisible(false);
       setRating(0);
@@ -156,6 +171,18 @@ const ClientOrdersView: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
   
         if (error) throw error;
   
+        // --- NOTIFICATION LOGIC ---
+        // Notify Provider about Complaint
+        await supabase.from('notifications').insert({
+            user_id: selectedOrder.provider_id,
+            title: "Disputa Registrada",
+            body: "Se ha registrado una queja en uno de tus servicios. Nuestro equipo la está revisando.",
+            type: 'problem',
+            related_id: selectedOrder.id,
+            is_read: false
+        });
+        // --------------------------
+
         Alert.alert("Reporte Enviado", "Tu reporte está siendo revisado.");
         setReportModalVisible(false);
         setReportReason("");
@@ -361,6 +388,59 @@ const ProviderOrdersView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             setProcessingId(orderId);
             const { error } = await supabase.from('orders').update({ status: newStatus }).eq('id', orderId);
             if (error) throw error;
+            
+            // --- NOTIFICATION LOGIC ---
+            try {
+                // 1. Get current provider's name
+                const { data: myProfile } = await supabase
+                    .from('profiles')
+                    .select('full_name')
+                    .eq('id', session.user.id)
+                    .single();
+                
+                const providerName = myProfile?.full_name || "El proveedor";
+
+                // 2. Fetch order details to get client_id
+                const { data: orderData, error: orderError } = await supabase
+                    .from('orders')
+                    .select('client_id, service_type')
+                    .eq('id', orderId)
+                    .single();
+
+                if (orderError) throw orderError;
+
+                if (orderData && orderData.client_id) {
+                     let notifTitle = "";
+                     let notifBody = "";
+     
+                     if (newStatus === 'aceptado') {
+                         notifTitle = "¡Solicitud Aceptada!";
+                         notifBody = `¡Buenas noticias! ${providerName} ha aceptado tu solicitud de ${orderData.service_type || 'servicio'}.`;
+                     } else if (newStatus === 'cancelado') { 
+                          notifTitle = "Solicitud Rechazada/Cancelada"; 
+                          notifBody = `Tu solicitud de ${orderData.service_type || 'servicio'} fue rechazada o cancelada por ${providerName}.`;
+                     } else if (newStatus === 'completado') {
+                         notifTitle = "Servicio Finalizado";
+                         notifBody = `${providerName} ha finalizado el servicio. Por favor, confirma y califica el trabajo.`;
+                     }
+     
+                     if (notifTitle) {
+                         const { error: notifError } = await supabase.from('notifications').insert({
+                             user_id: orderData.client_id, // Notify the client
+                             title: notifTitle,
+                             body: notifBody,
+                             type: 'order',
+                             related_id: orderId,
+                             is_read: false
+                         });
+                         if (notifError) console.error("Error inserting notification:", notifError);
+                     }
+                }
+            } catch (notifErr) {
+                console.error("Error in notification logic:", notifErr);
+            }
+            // --------------------------
+
             Alert.alert("Éxito", "Estado actualizado correctamente.");
             loadProviderOrders();
         } catch (error) {
@@ -769,16 +849,23 @@ const ProviderMenuView: React.FC<{
 
 const Ordenes: React.FC = () => {
     const { session } = useAuth();
+    const route = useRoute<any>(); // Add useRoute
     const [loading, setLoading] = useState(true);
     const [profile, setProfile] = useState<Profile | null>(null);
     const [viewMode, setViewMode] = useState<'loading' | 'menu' | 'client_orders' | 'provider_orders' | 'provider_performance'>('loading');
+
+    // Handle params for direct navigation
+    const initialView = route.params?.initialView;
 
     useEffect(() => {
         const checkUser = async () => {
             if (!session?.user) return;
             const { data } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
             setProfile(data);
-            if (data?.is_provider) {
+            
+            if (initialView === 'provider_orders' && data?.is_provider) {
+                setViewMode('provider_orders');
+            } else if (data?.is_provider) {
                 setViewMode('menu');
             } else {
                 setViewMode('client_orders');
@@ -786,7 +873,17 @@ const Ordenes: React.FC = () => {
             setLoading(false);
         };
         checkUser();
-    }, [session]);
+    }, [session, initialView]); // Add initialView dependency
+
+    // Also update viewMode if we receive new params while mounted (e.g. from notification)
+    useFocusEffect(
+        useCallback(() => {
+             if (route.params?.initialView === 'provider_orders' && profile?.is_provider) {
+                 setViewMode('provider_orders');
+                 // clear params? maybe not needed
+             }
+        }, [route.params?.initialView, profile])
+    );
 
     if (loading) return <View style={styles.centerContainer}><ActivityIndicator size="large" color="#6B4EFF"/></View>;
 
