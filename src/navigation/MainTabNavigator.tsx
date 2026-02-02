@@ -12,7 +12,13 @@ const Tab = createBottomTabNavigator<MainTabParamList>();
 
 export default function MainTabNavigator() {
   return (
-    <Tab.Navigator initialRouteName="Servicios">
+    <Tab.Navigator 
+      initialRouteName="Servicios"
+      screenOptions={{
+        tabBarActiveTintColor: '#F97316',
+        tabBarInactiveTintColor: 'gray',
+      }}
+    >
       <Tab.Screen 
         options={{ 
           tabBarIcon: ({color, size}) => <Ionicons name="search" size={24} color={color} />,

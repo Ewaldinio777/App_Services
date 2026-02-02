@@ -28,7 +28,7 @@ export default function Auth() {
   return (
     <View style={styles.container}>
       <View style={[styles.verticallySpaced, styles.mt20]}>
-        <Text style={styles.label}>Email</Text>
+        <Text style={styles.label}>Correo Electrónico</Text>
         <Input
           variant="outline"
           size="md"
@@ -40,14 +40,14 @@ export default function Auth() {
             style={styles.input}
             onChangeText={(text) => setEmail(text)}
             value={email}
-            placeholder="Email"
+            placeholder="Escribe tu correo electrónico"
             autoCapitalize="none"
             keyboardType="email-address"
           />
         </Input>
       </View>
       <View style={styles.verticallySpaced}>
-        <Text style={styles.label}>Password</Text>
+        <Text style={styles.label}>Contraseña</Text>
         <Input
           variant="outline"
           size="md"
@@ -59,7 +59,7 @@ export default function Auth() {
             style={styles.input}
             onChangeText={(text) => setPassword(text)}
             value={password}
-            placeholder="Password"
+            placeholder="Escribe tu contraseña"
             secureTextEntry={true}
             autoCapitalize="none"
           />
@@ -67,7 +67,7 @@ export default function Auth() {
       </View>
       <View style={[styles.verticallySpaced, styles.mt20]}>
         <Button disabled={loading} onPress={() => signInWithEmail()}>
-          <ButtonText>Sign In</ButtonText>
+          <ButtonText>Iniciar Sesión</ButtonText>
         </Button>
       </View>
       <View style={styles.verticallySpaced}>
@@ -119,7 +119,7 @@ const styles = StyleSheet.create({
   },
   forgotPassword: {
     marginTop: 20,
-    color: "#007AFF",
+    color: "#F97316",
     textAlign: "center",
     fontSize: 16,
   },

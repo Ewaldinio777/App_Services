@@ -40,7 +40,7 @@ export default function App() {
   }
 
   return (
-    <GluestackUIProvider mode="dark">
+    <GluestackUIProvider mode="light">
       <AuthProvider>
         <NavigationContainer ref={navigationRef}>
           <AppNavigator />

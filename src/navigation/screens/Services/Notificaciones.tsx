@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import {
   View,
   ScrollView,
@@ -6,6 +6,8 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
+  Image,
+  Alert,
 } from "react-native";
 import { Text } from "@/src/components/ui/text";
 import { useAuth } from "../../../context/AuthContext";
@@ -21,14 +23,57 @@ const formatRelativeTime = (dateString: string) => {
   const now = new Date();
   const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
 
-  if (diffInSeconds < 60) return "Hace unos segundos";
+  if (diffInSeconds < 60) return "hace un momento";
   const diffInMinutes = Math.floor(diffInSeconds / 60);
-  if (diffInMinutes < 60) return `Hace ${diffInMinutes} minuto${diffInMinutes !== 1 ? 's' : ''}`;
+  if (diffInMinutes < 60) return `hace ${diffInMinutes} minuto${diffInMinutes !== 1 ? 's' : ''}`;
   const diffInHours = Math.floor(diffInMinutes / 60);
-  if (diffInHours < 24) return `Hace ${diffInHours} hora${diffInHours !== 1 ? 's' : ''}`;
+  if (diffInHours < 24) return `hace ${diffInHours} hora${diffInHours !== 1 ? 's' : ''}`;
   const diffInDays = Math.floor(diffInHours / 24);
-  if (diffInDays === 1) return "Ayer";
-  return `Hace ${diffInDays} días`;
+  if (diffInDays === 1) return "ayer";
+  return `hace ${diffInDays} días`;
+};
+
+const NotificationItem = ({ item, onPress, onMorePress }: { item: Notification; onPress: (n: Notification) => void; onMorePress: (n: Notification) => void }) => {
+    // Placeholder logic for avatar/thumbnail until DB is updated
+    // In a real scenario, we would use item.metadata?.avatar_url or similar
+    const showThumbnail = false; 
+
+    return (
+        <TouchableOpacity
+            style={[styles.notificationItem, !item.is_read && styles.unreadItem]}
+            onPress={() => onPress(item)}
+            activeOpacity={0.7}
+        >
+            {/* Left: Avatar/Icon */}
+            <View style={styles.avatarContainer}>
+                <View style={styles.avatarPlaceholder}>
+                     <Ionicons name="notifications" size={20} color="#fff" />
+                </View>
+                {!item.is_read && <View style={styles.unreadDot} />}
+            </View>
+
+            {/* Middle: Content */}
+            <View style={styles.contentContainer}>
+                <Text style={styles.notificationBody} numberOfLines={3}>
+                     {item.body}
+                </Text>
+                 <Text style={styles.timeText}>{formatRelativeTime(item.created_at)}</Text>
+            </View>
+
+            {/* Right: Thumbnail & Menu */}
+            <View style={styles.rightContainer}>
+                {showThumbnail ? (
+                    <View style={styles.thumbnailPlaceholder} />
+                ) : (
+                     <View style={{ width: 60 }} /> // Spacer to mimic layout if no thumbnail
+                )} 
+                 
+                <TouchableOpacity onPress={() => onMorePress(item)} style={styles.moreButton}>
+                    <Ionicons name="ellipsis-vertical" size={20} color="#666" />
+                </TouchableOpacity>
+            </View>
+        </TouchableOpacity>
+    );
 };
 
 const Notificaciones: React.FC = () => {
@@ -96,182 +141,246 @@ const Notificaciones: React.FC = () => {
     }
   };
 
+  const deleteNotification = async (notificationId: string) => {
+    try {
+      const { error } = await supabase
+        .from("notifications")
+        .delete()
+        .eq("id", notificationId);
+
+      if (error) throw error;
+
+      setNotifications((prev) => prev.filter((n) => n.id !== notificationId));
+    } catch (error) {
+      console.error("Error deleting notification:", error);
+      Alert.alert("Error", "No se pudo eliminar la notificación");
+    }
+  };
+
   const handleNotificationPress = async (notification: Notification) => {
     if (!notification.is_read) {
-      await markAsRead(notification.id);
+        markAsRead(notification.id);
     }
     
-    // Determine type for icons, logic is same as before but now we navigate
-    // Assuming types: 'order', 'message', 'review' based on usage
-    
-    if (notification.type === 'order') {
+    // Navigation Logic
+    if (notification.type === 'order' || notification.title.toLowerCase().includes('solicitud') || notification.title.toLowerCase().includes('orden')) {
         const isProviderNotification = notification.title.includes("Nueva Solicitud");
-        
+        // Navigate to Orders screen
+        // If it's a specific order, ideally we'd go to OrderDetail, but Ordenes tab is a good start
+        // We pass params to help Ordenes screen select the tab or filter
         navigation.navigate("MainTabs", { 
             screen: "Ordenes",
             params: { 
                 initialView: isProviderNotification ? 'provider_orders' : undefined 
             }
         });
-    } else if (notification.type === 'chat' || notification.type === 'message') {
+    } else if (notification.type === 'chat' || notification.type === 'message' || notification.title.toLowerCase().includes('mensaje')) {
          if (notification.related_id) {
-             navigation.navigate("MainTabs", { screen: "Chats", params: { chatId: notification.related_id } });
+             navigation.navigate("MainTabs", { 
+                 screen: "Chats", 
+                 params: { chatId: notification.related_id } 
+             });
          } else {
              navigation.navigate("MainTabs", { screen: "Chats" });
          }
-    } else if (notification.type === 'review') {
-        // Go to profile or services? Maybe Provider detail self.
-        // For now, services or profile seems fine.
-        navigation.navigate("MainTabs", { screen: "Perfil" });
+    } else if (notification.type === 'review' || notification.title.toLowerCase().includes('calific') || notification.title.toLowerCase().includes('reseña')) {
+         // Assuming navigation to Profile where reviews might be visible, or Service detail
+         navigation.navigate("MainTabs", { screen: "Perfil" });
+    } else if (notification.type === 'complaint' || notification.title.toLowerCase().includes('queja')) {
+        // Go to support or specific order
+        if (notification.related_id) {
+             // If we had a generic way to go to an order detail:
+             // navigation.navigate("OrderDetail", { orderId: notification.related_id });
+             // Fallback to Ordenes
+             navigation.navigate("MainTabs", { screen: "Ordenes" });
+        }
     }
   };
 
-  const onRefresh = () => {
-    setRefreshing(true);
-    loadNotifications();
+  const handleMorePress = (notification: Notification) => {
+      Alert.alert(
+        "Opciones",
+        "¿Qué deseas hacer con esta notificación?",
+        [
+          {
+            text: "Cancelar",
+            style: "cancel"
+          },
+          {
+            text: "Eliminar notificación",
+            style: "destructive",
+            onPress: () => deleteNotification(notification.id)
+          }
+        ]
+      );
   };
 
-  if (!session) {
-    return (
-      <View style={styles.centerContainer}>
-        <Text>Error: Sesión no disponible.</Text>
-      </View>
-    );
-  }
+  const groupedNotifications = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const oneWeekAgo = new Date(today);
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+
+    const groups = {
+        hoy: [] as Notification[],
+        semana: [] as Notification[],
+        anteriores: [] as Notification[]
+    };
+
+    notifications.forEach(n => {
+        const nDate = new Date(n.created_at);
+        // Normalize time for comparison
+        const nDateOnly = new Date(nDate);
+        nDateOnly.setHours(0,0,0,0);
+
+        if (nDateOnly.getTime() === today.getTime()) {
+            groups.hoy.push(n);
+        } else if (nDateOnly >= oneWeekAgo) {
+            groups.semana.push(n);
+        } else {
+            groups.anteriores.push(n);
+        }
+    });
+    return groups;
+  }, [notifications]);
+
 
   if (loading) {
-    return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#007AFF" />
-      </View>
-    );
+     return (
+       <View style={styles.centerContainer}>
+         <ActivityIndicator size="large" color="#F97316" />
+       </View>
+     );
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-              <Ionicons name="arrow-back" size={24} color="#000" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Notificaciones</Text>
-      </View>
-
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+    <ScrollView 
+        style={styles.container} 
+        contentContainerStyle={{ paddingBottom: 20 }}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadNotifications(); }} colors={["#F97316"]} />
         }
-      >
-        {notifications.length === 0 ? (
-           <View style={styles.emptyContainer}>
-               <Ionicons name="notifications-off-outline" size={64} color="#ccc" />
-               <Text style={styles.emptyText}>No tienes notificaciones</Text>
-           </View>
-        ) : (
-            notifications.map((notification) => (
-            <TouchableOpacity
-                key={notification.id}
-                style={[styles.notificationCard, !notification.is_read && styles.unreadCard]}
-                onPress={() => handleNotificationPress(notification)}
-            >
-                <View style={styles.cardHeader}>
-                {!notification.is_read && <Text style={styles.newBadge}>(NUEVA)</Text>}
-                <Text style={styles.title} numberOfLines={1}>{notification.title}</Text>
+    >
+      {notifications.length === 0 ? (
+          <View style={styles.centerContainer}>
+              <Text style={{ color: "#666", marginTop: 50 }}>No tienes notificaciones</Text>
+          </View>
+      ) : (
+          <>
+            {groupedNotifications.hoy.length > 0 && (
+                <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>Hoy</Text>
+                    {groupedNotifications.hoy.map(n => <NotificationItem key={n.id} item={n} onPress={handleNotificationPress} onMorePress={handleMorePress} />)}
                 </View>
-                <Text style={styles.body}>{notification.body}</Text>
-                <Text style={styles.time}>{formatRelativeTime(notification.created_at)}</Text>
-            </TouchableOpacity>
-            ))
-        )}
-      </ScrollView>
-    </View>
+            )}
+            
+            {groupedNotifications.semana.length > 0 && (
+                <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>Esta semana</Text>
+                    {groupedNotifications.semana.map(n => <NotificationItem key={n.id} item={n} onPress={handleNotificationPress} onMorePress={handleMorePress} />)}
+                </View>
+            )}
+
+            {groupedNotifications.anteriores.length > 0 && (
+                <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>Anteriores</Text>
+                    {groupedNotifications.anteriores.map(n => <NotificationItem key={n.id} item={n} onPress={handleNotificationPress} onMorePress={handleMorePress} />)}
+                </View>
+            )}
+          </>
+      )}
+    </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#1c1c1e", // Dark background based on image
+    backgroundColor: "#fff",
   },
   centerContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#1c1c1e",
+    padding: 20,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#333',
-    backgroundColor: '#1c1c1e',
+  section: {
+    marginTop: 10,
   },
-  backButton: {
-    marginRight: 16,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#fff",
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-      padding: 16,
-      paddingBottom: 40,
-  },
-  emptyContainer: {
-      alignItems: 'center',
-      marginTop: 100,
-  },
-  emptyText: {
-      color: '#999',
-      marginTop: 20,
-      fontSize: 16,
-  },
-  notificationCard: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: '#666',
-    borderStyle: 'dashed',
-    borderRadius: 8,
-    padding: 16,
-    marginBottom: 16,
-  },
-  unreadCard: {
-    borderColor: '#fff', 
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-  },
-  cardHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  newBadge: {
-    color: "#fff",
-    fontWeight: "bold",
-    marginRight: 8,
-  },
-  title: {
+  sectionTitle: {
     fontSize: 16,
     fontWeight: "bold",
-    color: "#fff",
+    color: "#000",
+    marginLeft: 16,
+    marginBottom: 5,
+    marginTop: 10,
+  },
+  notificationItem: {
+    flexDirection: "row",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 0, 
+    // YouTube style doesn't have separators usually between every item in the same style, but let's keep it clean
+  },
+  unreadItem: {
+    backgroundColor: "#EFF6FF", // Light blue tint for unread
+  },
+  avatarContainer: {
+    marginRight: 12,
+    position: "relative",
+    justifyContent: 'flex-start',
+    paddingTop: 4, 
+  },
+  avatarPlaceholder: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#F97316",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  unreadDot: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: "#007AFF",
+    borderWidth: 1.5,
+    borderColor: '#fff',
+  },
+  contentContainer: {
     flex: 1,
+    justifyContent: 'flex-start',
   },
-  body: {
+  notificationBody: {
     fontSize: 14,
-    color: "#ccc",
-    marginBottom: 8,
+    color: "#000",
     lineHeight: 20,
+    marginBottom: 4,
   },
-  time: {
+  timeText: {
     fontSize: 12,
-    color: "#999",
-    fontStyle: 'italic',
+    color: "#606060",
   },
+  rightContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginLeft: 8,
+  },
+  thumbnailPlaceholder: {
+    width: 60,
+    height: 34, 
+    backgroundColor: "#e0e0e0",
+    borderRadius: 4,
+    marginRight: 8,
+  },
+  moreButton: {
+    padding: 5,
+    marginTop: -5,
+  }
 });
 
 export default Notificaciones;

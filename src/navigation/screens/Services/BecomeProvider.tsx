@@ -387,7 +387,7 @@ const styles = StyleSheet.create({
     textAlignVertical: "top",
   },
   button: {
-    backgroundColor: "#007AFF",
+    backgroundColor: "#F97316",
     padding: 15,
     borderRadius: 8,
     marginTop: 30,
@@ -435,11 +435,11 @@ const styles = StyleSheet.create({
   },
   modalItemTextSelected: {
     fontWeight: "bold",
-    color: "#007AFF",
+    color: "#F97316",
   },
   modalButton: {
     marginTop: 20,
-    backgroundColor: "#007AFF",
+    backgroundColor: "#F97316",
     padding: 10,
     borderRadius: 20,
     width: "100%",

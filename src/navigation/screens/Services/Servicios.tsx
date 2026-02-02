@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState, useCallback } from "react";
-import { View, ScrollView, StyleSheet, TouchableOpacity, TextInput, Modal, FlatList } from "react-native";
+import { View, ScrollView, StyleSheet, TouchableOpacity, TextInput, Modal, FlatList, KeyboardAvoidingView, Platform } from "react-native";
 import { useAuth } from "../../../context/AuthContext";
 import { Text } from "@/src/components/ui/text";
 import { Ionicons } from '@react-native-vector-icons/ionicons';
@@ -163,44 +163,53 @@ const categories = [
   }
 
   return (
-    <ScrollView style={{ flex: 1 }}>
+    <KeyboardAvoidingView 
+      style={{ flex: 1 }} 
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+    >
+      <ScrollView 
+        style={{ flex: 1 }} 
+        contentContainerStyle={{ flexGrow: 1, paddingBottom: 20 }}
+        keyboardShouldPersistTaps="handled" 
+        keyboardDismissMode="on-drag"
+      >
       <View style={styles.headerContainer}>
-        <View style={styles.greetingContainer}>
-          <Text style={styles.greetingText}>Hola{userName ? "," : ""}</Text>
-          <Text style={styles.userNameText}>{userName || "Bienvenido"}</Text>
-        </View>
+        <View style={styles.headerSubRow}>
+          <View style={styles.greetingContainer}>
+            <Text style={styles.greetingText}>Hola{userName ? "," : ""}</Text>
+            <Text style={styles.userNameText}>{userName || "Bienvenido"}</Text>
+          </View>
 
-        <View style={styles.headerRight}>
-          {!isProvider ? (
-            <TouchableOpacity
-              style={styles.becomeProviderButton}
-              onPress={() => navigation.navigate("BecomeProvider")}
-            >
-              <Ionicons name="briefcase" size={18} color="#fff" />
-              <Text style={styles.becomeProviderText}>¿Deseas ofrecer tus servicios?</Text>
-            </TouchableOpacity>
-          ) : (
-            <Text style={styles.providerLabel}>Proveedor de Servicio</Text>
-          )}
+          <View style={styles.headerRight}>
+            {!isProvider ? (
+              <TouchableOpacity
+                style={styles.becomeProviderButton}
+                onPress={() => navigation.navigate("BecomeProvider")}
+              >
+                <Ionicons name="briefcase-outline" size={16} color="#fff" />
+                <Text style={styles.becomeProviderText}>Ser Proveedor</Text>
+              </TouchableOpacity>
+            ) : (
+               <Text style={styles.providerLabel}>Proveedor de Servicio</Text>
+            )}
+          </View>
         </View>
       </View>
 
       <View style={styles.searchContainer}>
         <View style={styles.searchAndNotificationWrapper}>
-          <View style={[styles.searchInputWrapper, { flex: 1 }]}>
-            <Ionicons name="search" size={18} color="#9AA0A6" />
+          <View style={styles.searchInputWrapper}>
+            <Ionicons name="search" size={20} color="#9CA3AF" />
             <TextInput
-              placeholder="Buscar por nombre"
-              placeholderTextColor="#9AA0A6"
               style={styles.searchInput}
+              placeholder="Buscar servicio..."
+              placeholderTextColor="#9CA3AF"
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
             {searchQuery.length > 0 && (
-              <TouchableOpacity onPress={() => setSearchQuery("")}
-                style={styles.clearButton}
-              >
-                <Ionicons name="close-circle" size={18} color="#9AA0A6" />
+              <TouchableOpacity onPress={() => setSearchQuery("")} style={styles.clearButton}>
+                <Ionicons name="close-circle" size={18} color="#9CA3AF" />
               </TouchableOpacity>
             )}
           </View>
@@ -209,7 +218,7 @@ const categories = [
             style={styles.notificationButton}
             onPress={() => navigation.navigate("Notificaciones")}
           >
-            <Ionicons name="notifications" size={26} color="#007AFF" />
+            <Ionicons name="notifications-outline" size={26} color="#F97316" />
             {unreadCount > 0 && (
               <View style={styles.badge}>
                 <Text style={styles.badgeText}>
@@ -222,25 +231,25 @@ const categories = [
 
         <View style={styles.filtersRow}>
           <TouchableOpacity
-            style={styles.filterButton}
+            style={[styles.filterButton, styles.activeFilterButton]}
             onPress={() => setIsFilterOpen((prev) => !prev)}
           >
-            <Ionicons name="filter" size={18} color="#007AFF" />
-            <Text style={styles.filterText}>
+            <Ionicons name="grid-outline" size={16} color="#fff" />
+            <Text style={[styles.filterText, styles.activeFilterText]}>
               {selectedCategory === "Todos" ? "Categoría" : selectedCategory}
             </Text>
-            <Ionicons name={isFilterOpen ? "chevron-up" : "chevron-down"} size={16} color="#007AFF" />
+            <Ionicons name={isFilterOpen ? "chevron-up" : "chevron-down"} size={12} color="#fff" />
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.filterButton}
             onPress={() => setIsStateModalVisible(true)}
           >
-            <Ionicons name="location-outline" size={18} color="#007AFF" />
+            <Ionicons name="map-outline" size={16} color="#4B5563" />
             <Text style={styles.filterText}>
               {selectedState === "Todos" ? "Estado" : selectedState}
             </Text>
-            <Ionicons name="chevron-down" size={16} color="#007AFF" />
+            <Ionicons name="chevron-down" size={12} color="#4B5563" />
           </TouchableOpacity>
         </View>
       </View>
@@ -266,7 +275,7 @@ const categories = [
                     setIsFilterOpen(false);
                   }}
                 >
-                  <Text style={[styles.modalItemText, selectedCategory === item && { color: "#007AFF", fontWeight: "bold" }]}>
+                  <Text style={[styles.modalItemText, selectedCategory === item && { color: "#F97316", fontWeight: "bold" }]}>
                     {item}
                   </Text>
                 </TouchableOpacity>
@@ -304,7 +313,7 @@ const categories = [
                     setIsStateModalVisible(false);
                   }}
                 >
-                  <Text style={[styles.modalItemText, selectedState === item && { color: "#007AFF", fontWeight: "bold" }]}>
+                  <Text style={[styles.modalItemText, selectedState === item && { color: "#F97316", fontWeight: "bold" }]}>
                     {item}
                   </Text>
                 </TouchableOpacity>
@@ -336,7 +345,7 @@ const categories = [
               onPress={() => navigation.navigate("ProviderDetail", { providerId: provider.id })}
             >
               <View style={styles.providerInfo}>
-                <Ionicons name="person-circle" size={46} color="#007AFF" />
+                <Ionicons name="person-circle" size={46} color="#F97316" />
                 <View style={styles.providerDetails}>
                   <Text style={styles.providerName}>
                     {provider.profile?.full_name || "Proveedor"}
@@ -367,15 +376,24 @@ const categories = [
           ))
         )}
       </View>
-    </ScrollView>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 };
 
 const styles = StyleSheet.create({
   headerContainer: {
     paddingHorizontal: 20,
-    paddingTop: 20,
+    paddingTop: 40, // More space for top status bar area
     paddingBottom: 10,
+  },
+  screenTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#000',
+    marginBottom: 20,
+  },
+  headerSubRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -384,33 +402,37 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   greetingText: {
-    fontSize: 14,
+    fontSize: 16,
     color: '#6B7280',
   },
   userNameText: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#111827',
-    marginTop: 2,
+    fontSize: 24, // Larger
+    fontWeight: '900', // Bolder
+    color: '#000',
   },
   headerRight: {
     alignItems: 'flex-end',
-    gap: 10,
+    justifyContent: 'center',
   },
   notificationButton: {
     position: 'relative',
+    marginLeft: 10,
+    backgroundColor: '#E0F2FE', // Light blue/orange tint background for bell? Image has transparent/blue icon. Let's keep icon color #F97316 but maybe no bg or circle bg.
+    // Image shows distinct blue bell. We use #F97316.
+    padding: 8,
+    borderRadius: 20,
   },
   badge: {
     position: 'absolute',
-    top: -5,
-    right: -10,
-    backgroundColor: '#FF3B30',
+    top: -2,
+    right: -2,
+    backgroundColor: '#EF4444',
     borderRadius: 10,
-    minWidth: 20,
-    height: 20,
+    minWidth: 18,
+    height: 18,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 5,
+    paddingHorizontal: 4,
   },
   badgeText: {
     color: '#fff',
@@ -419,7 +441,7 @@ const styles = StyleSheet.create({
   },
   becomeProviderButton: {
     flexDirection: 'row',
-    backgroundColor: '#007AFF',
+    backgroundColor: '#F97316',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 18,
@@ -431,41 +453,40 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 12,
   },
-  promptContainer: {
-    paddingHorizontal: 20,
-    marginBottom: 12,
-  },
-  promptText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#111827',
-  },
   searchContainer: {
     paddingHorizontal: 20,
     marginBottom: 12,
-    gap: 10,
+    marginTop: 10,
+    gap: 15,
   },
   searchAndNotificationWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
   },
   searchInputWrapper: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F2F4F7',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 14,
+    backgroundColor: '#fff', // White background
+    paddingHorizontal: 15,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#F97316', // Orange border
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
   },
   filtersRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 12,
   },
   searchInput: {
     flex: 1,
-    marginLeft: 8,
+    marginLeft: 10,
     fontSize: 14,
     color: '#111827',
   },
@@ -475,39 +496,21 @@ const styles = StyleSheet.create({
   filterButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#E8F0FE',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 14,
-    gap: 6,
+    backgroundColor: '#EFF6FF', // Light background
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20, // Pill shape
+    gap: 8,
+  },
+  activeFilterButton: {
+    backgroundColor: '#F97316', // Filled Orange
   },
   filterText: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '600',
-    color: '#007AFF',
+    color: '#1F2937', 
   },
-  filterOptions: {
-    paddingHorizontal: 20,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 10,
-  },
-  filterOption: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    backgroundColor: '#F2F4F7',
-  },
-  filterOptionActive: {
-    backgroundColor: '#007AFF',
-  },
-  filterOptionText: {
-    fontSize: 12,
-    color: '#4B5563',
-    fontWeight: '600',
-  },
-  filterOptionTextActive: {
+  activeFilterText: {
     color: '#fff',
   },
   providersSection: {
@@ -515,9 +518,10 @@ const styles = StyleSheet.create({
     paddingTop: 10,
   },
   sectionTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: 'bold',
     marginBottom: 15,
+    color: '#6B7280', // Grayish 
   },
   loadingText: {
     textAlign: 'center',
@@ -534,14 +538,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: '#fff',
-    padding: 14,
-    borderRadius: 14,
-    marginBottom: 12,
+    padding: 16,
+    borderRadius: 16,
+    marginBottom: 16,
+    // Higher elevation/shadow
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
   },
   providerInfo: {
     flexDirection: 'row',
@@ -555,13 +560,13 @@ const styles = StyleSheet.create({
   providerName: {
     fontSize: 16,
     fontWeight: 'bold',
-    marginBottom: 2,
-    color: '#111827',
+    marginBottom: 4,
+    color: '#000',
   },
   providerSpecialization: {
-    fontSize: 13,
+    fontSize: 14,
     color: '#6B7280',
-    marginBottom: 4,
+    marginBottom: 6,
   },
   ratingRow: {
     flexDirection: 'row',
@@ -573,19 +578,25 @@ const styles = StyleSheet.create({
     color: '#9CA3AF',
   },
   providerActions: {
-    alignItems: 'flex-end',
+    justifyContent: 'center',
   },
   messageButton: {
-    backgroundColor: '#1E88E5',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
+    backgroundColor: '#F97316', // Orange Button
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20, // Pill button
   },
   messageButtonText: {
     color: '#fff',
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: 'bold',
   },
+  providerLabel: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#000', // Black text
+  },
+  // Modal styles...
   modalCenteredView: {
     flex: 1,
     justifyContent: "center",
@@ -630,11 +641,6 @@ const styles = StyleSheet.create({
   modalButtonText: {
     color: '#333',
     fontWeight: '600'
-  },
-  providerLabel: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#000',
   }
 });
 

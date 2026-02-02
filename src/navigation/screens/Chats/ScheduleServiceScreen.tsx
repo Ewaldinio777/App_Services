@@ -11,6 +11,7 @@ import {
   Platform,
   KeyboardAvoidingView,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import CustomDateTimePicker from "@/src/components/ui/CustomDateTimePicker";
 import { Text } from "@/src/components/ui/text";
 import { useAuth } from "../../../context/AuthContext";
@@ -22,6 +23,7 @@ import { Ionicons } from "@react-native-vector-icons/ionicons";
 type ScheduleServiceRouteProp = RouteProp<RootStackParamList, "ScheduleService">;
 
 export default function ScheduleServiceScreen() {
+  const insets = useSafeAreaInsets();
   const { session } = useAuth();
   const route = useRoute<ScheduleServiceRouteProp>();
   const navigation = useNavigation<any>();
@@ -160,117 +162,132 @@ export default function ScheduleServiceScreen() {
   }
 
   return (
-    <KeyboardAvoidingView 
-      style={{ flex: 1 }} 
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-    >
-    <ScrollView contentContainerStyle={styles.container}>
+    <View style={{ flex: 1, backgroundColor: '#fff', paddingTop: insets.top }}>
+      
+      {/* Header Estilo ChatDetail */}
       <View style={styles.header}>
-            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+            <TouchableOpacity onPress={() => navigation.goBack()} style={{ flexDirection: 'row', alignItems: 'center' }}>
                  <Ionicons name="arrow-back" size={24} color="#000" />
+                 <Text style={[styles.headerTitle, { marginLeft: 20 }]}>Solicitud de Servicio</Text>
             </TouchableOpacity>
-            <Text style={styles.headerTitle}>Solicitud de Servicio</Text>
       </View>
-
-      <Text style={styles.sectionTitle}>Ingresa la información para solicitar el servicio</Text>
-
-      <View style={styles.formGroup}>
-        <Text style={styles.label}>Fecha y Hora</Text>
-        <TouchableOpacity 
-            style={[styles.input, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}
-            onPress={() => setShowPicker(true)}
-        >
-             <Text>{selectedDate.toLocaleDateString()} - {selectedDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', hour12: true})}</Text>
-             <Ionicons name="calendar-outline" size={20} color="#666" />
-        </TouchableOpacity>
-        
-        <CustomDateTimePicker
-            visible={showPicker}
-            initialDate={selectedDate}
-            onClose={() => setShowPicker(false)}
-            onSelect={handleDateSelect}
-        />
-      </View>
-
-      <View style={styles.formGroup}>
-        <Text style={styles.label}>Ingresa la Dirección</Text>
-        <TextInput
-            style={styles.input}
-            placeholder="Dirección donde se llevará a cabo el servicio"
-            value={address}
-            onChangeText={setAddress}
-        />
-      </View>
-
-      <Text style={[styles.sectionTitle, { marginTop: 24 }]}>Detalles de Solicitud</Text>
-
-      <View style={styles.card}>
-        <View style={styles.providerHeader}>
-            {profile?.avatar_url ? (
-                <Image source={{ uri: profile.avatar_url }} style={styles.avatar} />
-            ) : (
-                <View style={[styles.avatar, { backgroundColor: '#ccc' }]} />
-            )}
-            <Text style={styles.providerName}>{profile?.full_name || "Nombre Proveedor"}</Text>
-        </View>
-
-        <View style={styles.divider} />
-
-        <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Nro de Cedula</Text>
-            <Text style={styles.detailValue}>{provider?.id_number || "N/A"}</Text>
-        </View>
-        <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Teléfono</Text>
-            {/* Show provider phone, or profile phone, or N/A */}
-            <Text style={styles.detailValue}>{provider?.phone || profile?.phone || "N/A"}</Text>
-        </View>
-
-        <View style={styles.divider} />
-
-        <View style={styles.detailBlock}>
-            <Text style={styles.detailLabel}>Título del Servicio</Text>
-            <TextInput
-                style={[styles.input, { backgroundColor: '#fff', marginTop: 4 }]}
-                placeholder="Ej: Revisión de tubería, Limpieza profunda..."
-                value={requestTitle}
-                onChangeText={setRequestTitle}
-            />
-        </View>
-        
-        <View style={styles.detailBlock}>
-            <Text style={styles.detailLabel}>Descripción del Servicio</Text>
-            <TextInput
-                style={[styles.input, { backgroundColor: '#fff', marginTop: 4, height: 80, textAlignVertical: 'top' }]}
-                placeholder="Describe el problema o trabajo a realizar..."
-                value={requestDescription}
-                onChangeText={setRequestDescription}
-                multiline
-            />
-        </View>
-      </View>
-
-      <TouchableOpacity 
-        style={styles.scheduleButton}
-        onPress={handleSchedule}
-        disabled={submitting}
+      
+      <KeyboardAvoidingView 
+        style={{ flex: 1 }} 
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
-          {submitting ? (
-              <ActivityIndicator color="#fff" />
-          ) : (
-              <Text style={styles.scheduleButtonText}>Agendar</Text>
-          )}
-      </TouchableOpacity>
+      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+        
+        <Text style={styles.sectionTitle}>Ingresa la información</Text>
 
-    </ScrollView>
-    </KeyboardAvoidingView>
+        <View style={styles.formGroup}>
+            <Text style={styles.label}>Fecha y Hora</Text>
+            <TouchableOpacity 
+                style={styles.compactInput}
+                onPress={() => setShowPicker(true)}
+            >
+                    <Text style={styles.inputText} numberOfLines={1}>{selectedDate.toLocaleDateString()} {selectedDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</Text>
+                    <Ionicons name="calendar-outline" size={18} color="#666" />
+            </TouchableOpacity>
+            <CustomDateTimePicker
+                visible={showPicker}
+                initialDate={selectedDate}
+                onClose={() => setShowPicker(false)}
+                onSelect={handleDateSelect}
+            />
+        </View>
+
+        <View style={styles.formGroup}>
+            <Text style={styles.label}>Dirección</Text>
+            <View style={styles.compactInput}>
+                <TextInput
+                    style={{ flex: 1, color: '#333', paddingVertical: 0 }}
+                    placeholder="Dirección del servicio"
+                    placeholderTextColor="#999"
+                    value={address}
+                    onChangeText={setAddress}
+                />
+                <Ionicons name="location-outline" size={18} color="#666" />
+            </View>
+        </View>
+
+        <Text style={[styles.sectionTitle, { marginTop: 12 }]}>Detalles de Solicitud</Text>
+
+        <View style={styles.card}>
+          <View style={styles.providerHeader}>
+              {profile?.avatar_url ? (
+                  <Image source={{ uri: profile.avatar_url }} style={styles.avatar} />
+              ) : (
+                  <View style={[styles.avatar, styles.avatarPlaceholder]}>
+                     <Ionicons name="person" size={24} color="#999" />
+                  </View>
+              )}
+              <View style={{flex: 1}}>
+                  <Text style={styles.providerName}>{profile?.full_name || "Nombre Proveedor"}</Text>
+                  
+                  <View style={styles.infoRowContainer}>
+                     <View style={styles.infoItem}>
+                        <Ionicons name="card-outline" size={14} color="#666" style={{marginRight: 4}} />
+                        <Text style={styles.detailValue}>{provider?.id_number || "N/A"}</Text>
+                     </View>
+                     <View style={styles.infoItem}>
+                        <Ionicons name="call-outline" size={14} color="#666" style={{marginRight: 4}} />
+                        <Text style={styles.detailValue}>{provider?.phone || profile?.phone || "N/A"}</Text>
+                     </View>
+                  </View>
+              </View>
+          </View>
+
+          <View style={styles.divider} />
+
+          <View style={styles.detailBlock}>
+              <Text style={styles.detailLabel}>Título del Servicio</Text>
+              <TextInput
+                  style={[styles.input, { backgroundColor: '#fff', marginTop: 4, paddingVertical: 8 }]}
+                  placeholder="Ej: Revisión de tubería..."
+                  value={requestTitle}
+                  onChangeText={setRequestTitle}
+              />
+          </View>
+          
+          <View style={styles.detailBlock}>
+              <Text style={styles.detailLabel}>Descripción</Text>
+              <TextInput
+                  style={[styles.input, { backgroundColor: '#fff', marginTop: 4, height: 60, textAlignVertical: 'top', paddingVertical: 8 }]}
+                  placeholder="Detalles del trabajo..."
+                  value={requestDescription}
+                  onChangeText={setRequestDescription}
+                  multiline
+              />
+          </View>
+        </View>
+
+        <TouchableOpacity 
+          style={styles.scheduleButton}
+          onPress={handleSchedule}
+          disabled={submitting}
+        >
+            {submitting ? (
+                <ActivityIndicator color="#fff" />
+            ) : (
+                <>
+                <Ionicons name="calendar" size={24} color="#fff" style={{ marginRight: 8 }} />
+                <Text style={styles.scheduleButtonText}>Agendar</Text>
+                </>
+            )}
+        </TouchableOpacity>
+
+      </ScrollView>
+      </KeyboardAvoidingView>
+    </View>
   );
 }
 
 
 const styles = StyleSheet.create({
   container: {
-    padding: 20,
+    padding: 16,
+    paddingTop: 4,
     backgroundColor: '#fff',
     flexGrow: 1,
   },
@@ -282,108 +299,131 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 20,
-  },
-  backButton: {
-    padding: 8,
-    borderRadius: 20,
-    backgroundColor: '#f0f0f0',
-    marginRight: 16,
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    marginTop: 8,
   },
   headerTitle: {
     fontSize: 20,
     fontWeight: 'bold',
+    color: '#000',
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
-    marginBottom: 12,
+    marginBottom: 8, // Reduced
     color: '#000',
   },
   formGroup: {
-    marginBottom: 16,
+    marginBottom: 12, // Reduced
+  },
+  compactRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginBottom: 8,
   },
   label: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#333',
     fontWeight: '600',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   input: {
     backgroundColor: '#f5f5f5',
-    padding: 12,
+    padding: 10, // Reduced
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#e0e0e0',
+    fontSize: 14,
   },
-  row: {
+  compactInput: {
+    backgroundColor: '#f5f5f5',
+    padding: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
     flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    height: 48, // Fixed height for alignment
+  },
+  inputText: {
+      fontSize: 13,
+      color: '#333',
+      flex: 1,
   },
   card: {
-    backgroundColor: '#f9f9f9', // Light gray background like image
+    backgroundColor: '#f9f9f9',
     borderRadius: 12,
-    padding: 16,
-    marginBottom: 24,
+    padding: 12, // Reduced
+    marginBottom: 16, // Reduced
   },
   providerHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 10,
   },
   avatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 8, // Square with rounded corners
+    width: 48,
+    height: 48,
+    borderRadius: 12, // More rounded
     marginRight: 12,
   },
+  avatarPlaceholder: {
+      backgroundColor: '#e1e1e1',
+      justifyContent: 'center',
+      alignItems: 'center',
+  },
   providerName: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  infoRowContainer: {
+     flexDirection: 'row',
+     flexWrap: 'wrap',
+  },
+  infoItem: {
+     flexDirection: 'row',
+     alignItems: 'center',
+     marginRight: 12,
+  },
+  detailValue: {
+    fontSize: 13,
+    color: '#555',
   },
   divider: {
     height: 1,
-    backgroundColor: '#e0e0e0',
-    marginVertical: 12,
-    borderStyle: 'dashed', // Attempting dashed effect
+    backgroundColor: '#ccc',
+    marginVertical: 10,
+    borderStyle: 'dashed',
     borderWidth: 1,
-    borderColor: '#ccc', 
-  },
-  detailRow: {
-    flexDirection: 'column',
-    marginBottom: 8,
-  },
-  detailLabel: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#000',
-    marginBottom: 2,
-  },
-  detailValue: {
-    fontSize: 14,
-    color: '#333',
+    borderColor: '#ddd',
+    borderRadius: 1, 
   },
   detailBlock: {
-    marginBottom: 12,
+    marginBottom: 10,
   },
-  serviceTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-  },
-  serviceDesc: {
-    fontSize: 14,
-    color: '#666',
+  detailLabel: {
+    fontSize: 13,
+    fontWeight: 'bold',
+    color: '#000',
+    marginBottom: 4,
   },
   scheduleButton: {
-    backgroundColor: '#6B4EFF', // Purple/Blue color
-    padding: 16,
+    backgroundColor: '#F97316',
+    padding: 14,
     borderRadius: 25,
+    flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 'auto',
+    justifyContent: 'center',
+    marginTop: 8,
+    marginBottom: 20,
   },
   scheduleButtonText: {
     color: '#fff',
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
   },
 });
+

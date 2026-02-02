@@ -8,7 +8,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
-  Keyboard,
   Modal,
   Image,
   ScrollView,
@@ -121,7 +120,6 @@ const ChatDetail: React.FC = () => {
   const [messageText, setMessageText] = useState("");
   const [loading, setLoading] = useState(true);
   const [otherParticipant, setOtherParticipant] = useState<Profile | null>(null);
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   // New State for Profile/Schedule features
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -165,28 +163,12 @@ const ChatDetail: React.FC = () => {
     }
   }, [otherParticipant]);
 
-  // Listen to keyboard events for Android
-  useEffect(() => {
-    if (Platform.OS === 'android') {
-      const keyboardDidShowListener = Keyboard.addListener(
-        'keyboardDidShow',
-        (e) => {
-          setKeyboardHeight(e.endCoordinates.height);
-        }
-      );
-      const keyboardDidHideListener = Keyboard.addListener(
-        'keyboardDidHide',
-        () => {
-          setKeyboardHeight(0);
-        }
-      );
+  // Listen to keyboard events for Android - REMOVED to fix double spacing with adjustResize
+  /* 
+     With windowSoftInputMode="adjustResize" in AndroidManifest.xml, the view automatically resizes properly.
+     We don't need manual padding which causes the input to jump up too high.
+  */
 
-      return () => {
-        keyboardDidShowListener.remove();
-        keyboardDidHideListener.remove();
-      };
-    }
-  }, []);
 
   const mergeMessages = (incoming: Message[]) => {
     setMessages((prev) => {
@@ -485,53 +467,50 @@ const ChatDetail: React.FC = () => {
   if (!session?.user) return <View style={styles.centerContainer}><Text>Error: Sesión no disponible.</Text></View>;
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <View style={styles.safeArea}>
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
       >
-        <View style={[styles.contentContainer, { paddingBottom: keyboardHeight }]}>
-            <View style={styles.header}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
-                  <Ionicons name="person-circle" size={28} color="#007AFF" />
-                  <Text style={styles.headerTitle} numberOfLines={1}>{otherParticipant?.full_name || "Chat"}</Text>
-              </View>
-
-              {otherParticipant?.is_provider && (
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <TouchableOpacity onPress={() => setShowProfileModal(true)} style={styles.headerActionButton}>
-                        <Text style={styles.headerActionText}>Perfil</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity 
-                        onPress={() => {
-                            if (otherProvider) {
-                                navigation.navigate('ScheduleService', { providerId: otherProvider.id });
-                            } else {
-                                if (isLoadingProvider) {
-                                    Alert.alert("Aviso", "Cargando información...");
-                                } else if (otherParticipant?.id) {
-                                    Alert.alert("Aviso", "Reintentando cargar información del proveedor...", [], { cancelable: true });
-                                    loadProviderData(otherParticipant.id).then(() => {
-                                         // Check in state won't work immediately here due to closures, but user can click again
-                                         // Or we can navigate if data is found inside loadProviderData? No, simpler to let user click again or check here.
-                                         // To be safe, just feedback to user.
-                                    });
-                                } else {
-                                     Alert.alert("Error", "No se pudo cargar la información del proveedor.");
-                                }
-                            }
-                        }} 
-                        style={[styles.headerActionButton, { backgroundColor: '#000' }]}
-                    >
-                        <Text style={[styles.headerActionText, { color: '#fff' }]}>Agendar</Text>
-                    </TouchableOpacity>
+        <View style={styles.header}>
+            
+            <View style={styles.headerUserInfo}>
+                <Ionicons name="person-circle" size={40} color="#F97316" />
+                <View style={{ marginLeft: 10, flex: 1, marginRight: 8 }}>
+                    <Text style={styles.headerTitle} numberOfLines={1}>{otherParticipant?.full_name || "Chat"}</Text>
                 </View>
-              )}
             </View>
 
+            <View style={styles.headerActions}>
+                {otherParticipant?.is_provider && (
+                    <TouchableOpacity onPress={() => setShowProfileModal(true)} style={styles.profileButton}>
+                        <Text style={styles.profileButtonText}>Perfil</Text>
+                    </TouchableOpacity>
+                )}
+                
+                {/* Agendar button: Visible only if the other participant is a provider */}
+                {otherParticipant?.is_provider && (
+                  <TouchableOpacity 
+                      onPress={() => {
+                          if (otherProvider) {
+                              navigation.navigate('ScheduleService', { providerId: otherProvider.id });
+                          } else if (otherParticipant?.is_provider) {
+                               Alert.alert("Aviso", "Cargando información...");
+                               if (otherParticipant?.id) loadProviderData(otherParticipant.id);
+                          }
+                      }} 
+                      style={styles.callButton}
+                  >
+                      <Text style={styles.callButtonText}>Agendar</Text>
+                  </TouchableOpacity>
+                )}
+            </View>
+        </View>
+
+        <View style={styles.contentContainer}>
             {loading ? (
-              <View style={styles.centerContainer}><ActivityIndicator size="large" color="#007AFF" /></View>
+              <View style={styles.centerContainer}><ActivityIndicator size="large" color="#F97316" /></View>
             ) : (
               <FlatList
                 style={styles.messagesContainer}
@@ -542,73 +521,117 @@ const ChatDetail: React.FC = () => {
                 showsVerticalScrollIndicator={true}
                 keyboardDismissMode="on-drag"
                 keyboardShouldPersistTaps="handled"
-                renderItem={({ item }) => (
-                  <MessageItem message={item} currentUserId={session?.user?.id || ''} />
+                renderItem={({ item }) => ( // Date separators logic would go here ideally 
+                   <MessageItem message={item} currentUserId={session?.user?.id || ''} />
                 )}
               />
             )}
 
+            {/* Input Area - Cleaned up (No attach/mic) */}
             <View style={[styles.inputContainer, { paddingBottom: Math.max(insets.bottom, 20) }]}>
-              <TextInput
-                style={styles.input}
-                placeholder="Escribe un mensaje"
-                value={messageText}
-                onChangeText={setMessageText}
-                multiline
-                maxLength={500}
-              />
+              
+              <View style={styles.inputWrapper}>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Escribe un mensaje..."
+                    placeholderTextColor="#9CA3AF"
+                    value={messageText}
+                    onChangeText={setMessageText}
+                    multiline
+                    maxLength={500}
+                  />
+              </View>
+              
               <TouchableOpacity 
                 style={[styles.sendButton, !messageText.trim() && styles.sendButtonDisabled]} 
                 onPress={handleSend}
                 disabled={!messageText.trim()}
               >
-                <Ionicons name="send" size={20} color={messageText.trim() ? "#fff" : "#aaa"} />
+                <Ionicons name="paper-plane" size={20} color="#fff" />
               </TouchableOpacity>
             </View>
           </View>
       </KeyboardAvoidingView>
-
+    {/* Profile Modal kept as is */}
       <Modal
         visible={showProfileModal}
         transparent={true}
-        animationType="slide"
+        animationType="fade"
         onRequestClose={() => setShowProfileModal(false)}
       >
         <View style={styles.modalOverlay}>
             <View style={styles.modalContent}>
-                <View style={styles.modalHeader}>
-                    <Text style={styles.modalTitle}>Información del Proveedor</Text>
-                    <TouchableOpacity onPress={() => setShowProfileModal(false)}>
-                        <Ionicons name="close" size={24} color="#000" />
-                    </TouchableOpacity>
-                </View>
-                {otherParticipant && (
-                    <ScrollView contentContainerStyle={{ alignItems: 'center', padding: 20 }}>
-                        {otherParticipant.avatar_url ? (
-                            <Image source={{ uri: otherParticipant.avatar_url }} style={styles.modalAvatar} />
-                        ) : (
-                            <View style={[styles.modalAvatar, { backgroundColor: '#e0e0e0', justifyContent: 'center', alignItems: 'center' }]}>
-                                <Ionicons name="person" size={40} color="#999" />
-                            </View>
-                        )}
-                        <Text style={styles.modalName}>{otherParticipant.full_name}</Text>
-                        
-                        {otherProvider ? (
-                            <View style={{ width: '100%', marginTop: 20 }}>
-                                <Text style={styles.modalLabel}>Especialización</Text>
-                                <Text style={styles.modalText}>{otherProvider.specialization}</Text>
-                                
-                                <Text style={styles.modalLabel}>Descripción</Text>
-                                <Text style={styles.modalText}>{otherProvider.description}</Text>
+                {/* Close Button */}
+                <TouchableOpacity 
+                    style={{ position: 'absolute', top: 15, right: 15, zIndex: 1 }}
+                    onPress={() => setShowProfileModal(false)}
+                >
+                    <Ionicons name="close" size={24} color="#000" />
+                </TouchableOpacity>
 
-                                <Text style={styles.modalLabel}>Teléfono</Text>
-                                <Text style={styles.modalText}>{otherProvider.phone}</Text>
+                {otherParticipant && (
+                    <ScrollView contentContainerStyle={{ padding: 24, paddingBottom: 30 }}>
+                        {/* Header Profile Info */}
+                        <View style={{ alignItems: 'center', marginBottom: 10 }}>
+                            {otherParticipant.avatar_url ? (
+                                <Image source={{ uri: otherParticipant.avatar_url }} style={styles.modalAvatar} />
+                            ) : (
+                                <View style={[styles.modalAvatar, { backgroundColor: '#F97316', justifyContent: 'center', alignItems: 'center' }]}>
+                                    <Ionicons name="person" size={50} color="#fff" />
+                                </View>
+                            )}
+                            
+                            <Text style={styles.modalName}>{otherParticipant.full_name}</Text>
+                            
+                            {otherProvider && (
+                                <>
+                                    <Text style={styles.modalSpecialization}>
+                                        {Array.isArray(otherProvider.specialization) 
+                                            ? otherProvider.specialization.join(", ") 
+                                            : otherProvider.specialization || "Proveedor"}
+                                    </Text>
+                                    
+                                    <View style={styles.modalRatingContainer}>
+                                        <Ionicons name="star" size={18} color="#FFD700" />
+                                        <Text style={styles.modalRatingText}>
+                                            {otherProvider.rating ? otherProvider.rating.toFixed(1) : "0.0"} 
+                                            <Text style={{ color: '#666', fontWeight: 'normal' }}> ({otherProvider.total_reviews || 0})</Text>
+                                        </Text>
+                                    </View>
+                                </>
+                            )}
+                        </View>
+
+                        {otherProvider ? (
+                            <View style={{ width: '100%' }}>
+                                {/* Divider */}
+                                <View style={styles.divider} />
+
+                                {/* Contact Info */}
+                                <View style={styles.modalSection}>
+                                    <Text style={styles.modalSectionTitle}>Información de Contacto</Text>
+                                    
+                                    <View style={styles.infoRow}>
+                                        <Ionicons name="call" size={20} color="#F97316" />
+                                        <Text style={styles.infoText}>{otherParticipant.phone || "No disponible"}</Text>
+                                    </View>
+                                    
+                                    <View style={styles.infoRow}>
+                                        <Ionicons name="location" size={20} color="#F97316" />
+                                        <Text style={styles.infoText}>{otherParticipant.state || "Ubicación no disponible"}</Text>
+                                    </View>
+
+                                    <View style={styles.infoRow}>
+                                        <Ionicons name="card" size={20} color="#F97316" />
+                                        <Text style={styles.infoText}>{otherProvider.id_number || "V-00000000"}</Text>
+                                    </View>
+                                </View>
                             </View>
                         ) : (
                              <View style={{ marginTop: 20, alignItems: 'center' }}>
-                                <ActivityIndicator size="small" color="#0000ff" />
+                                <ActivityIndicator size="small" color="#F97316" />
                                 <Text style={{ marginTop: 10, color: '#666' }}>
-                                    {isLoadingProvider ? "Cargando detalles..." : "No se pudo cargar la información del proveedor."}
+                                    {isLoadingProvider ? "Cargando perfil..." : "Información no disponible."}
                                 </Text>
                              </View>
                         )}
@@ -617,178 +640,266 @@ const ChatDetail: React.FC = () => {
             </View>
         </View>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#f5f5f5"
+    backgroundColor: '#fff',
   },
-  container: { 
-    flex: 1
+  container: {
+    flex: 1,
+    backgroundColor: '#fff',
   },
   contentContainer: {
-    flex: 1
+    flex: 1,
   },
-  centerContainer: { 
-    flex: 1, 
-    justifyContent: "center", 
-    alignItems: "center" 
+  centerContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  header: { 
-    flexDirection: "row", 
-    alignItems: "center", 
-    gap: 8, 
-    padding: 16, 
-    backgroundColor: "#fff", 
-    borderBottomWidth: 1, 
-    borderBottomColor: "#e0e0e0" 
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+    backgroundColor: '#fff',
   },
-  headerTitle: { 
-    fontSize: 18, 
-    fontWeight: "600" 
+  headerUserInfo: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  messagesContainer: { 
-    flex: 1, 
-    paddingHorizontal: 16 
+  headerTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#000',
   },
-  scrollContent: {
-    paddingVertical: 12,
-    paddingTop: 20,
+  headerSubtitle: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    marginLeft: 4,
   },
-  messageBubble: { 
-    maxWidth: "80%", 
-    padding: 12, 
-    borderRadius: 12, 
-    marginBottom: 10 
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
-  myMessage: { 
-    alignSelf: "flex-end", 
-    backgroundColor: "#007AFF" 
-  },
-  otherMessage: { 
-    alignSelf: "flex-start", 
-    backgroundColor: "#e9e9eb" 
-  },
-  sendingMessage: { 
-    opacity: 0.7 
-  },
-  errorMessage: { 
-    backgroundColor: '#ffebee', 
-    borderColor: '#f44336', 
-    borderWidth: 1 
-  },
-  messageText: { 
-    color: "#111" 
-  },
-  myMessageText: { 
-    color: "#fff" 
-  },
-  otherMessageText: { 
-    color: "#111" 
-  },
-  messageTime: { 
-    marginTop: 4, 
-    fontSize: 10, 
-    textAlign: "right" 
-  },
-  myMessageTime: { 
-    color: "#e6e6e6" 
-  },
-  otherMessageTime: { 
-    color: "#666" 
-  },
-  inputContainer: { 
-    flexDirection: "row", 
-    alignItems: "center", 
-    padding: 10, 
-    paddingBottom: Platform.OS === 'android' ? 20 : 10,
-    borderTopWidth: 1, 
-    borderTopColor: "#e0e0e0", 
-    backgroundColor: "#fff",
-    minHeight: 70
-  },
-  input: { 
-    flex: 1, 
-    borderWidth: 1, 
-    borderColor: "#ddd", 
-    borderRadius: 20, 
-    paddingHorizontal: 14, 
+  profileButton: {
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 16,
     paddingVertical: 8,
-    paddingTop: 8,
-    maxHeight: 100,
-    marginRight: 10, 
-    backgroundColor: "#fff" 
+    borderRadius: 20,
   },
-  sendButton: { 
-    backgroundColor: "#007AFF", 
-    width: 44,
-    height: 44,
-    borderRadius: 22, 
-    alignItems: "center", 
-    justifyContent: "center" 
-  },
-  sendButtonDisabled: {
-    backgroundColor: "#e0e0e0"
-  },
-  headerActionButton: {
-    backgroundColor: '#f0f0f0',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-  },
-  headerActionText: {
+  profileButtonText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#333',
+    color: '#374151',
   },
+  callButton: {
+    backgroundColor: '#000',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  callButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  messagesContainer: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  scrollContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 20,
+  },
+  messageBubble: {
+    maxWidth: '75%',
+    padding: 12,
+    borderRadius: 16,
+    marginBottom: 10,
+  },
+  myMessage: {
+    alignSelf: 'flex-end',
+    backgroundColor: '#F97316', // Orange
+    borderBottomRightRadius: 2,
+  },
+  otherMessage: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#F3F4F6', // Light Gray
+    borderBottomLeftRadius: 2,
+  },
+  sendingMessage: {
+    opacity: 0.7,
+  },
+  errorMessage: {
+    borderColor: '#EF4444',
+    borderWidth: 1,
+  },
+  messageText: {
+    fontSize: 15,
+    lineHeight: 20,
+  },
+  myMessageText: {
+    color: '#fff',
+  },
+  otherMessageText: {
+    color: '#111827',
+  },
+  messageTime: {
+    marginTop: 4,
+    fontSize: 10,
+    textAlign: 'right',
+  },
+  myMessageTime: {
+    color: 'rgba(255,255,255,0.7)',
+  },
+  otherMessageTime: {
+    color: '#9CA3AF',
+  },
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    backgroundColor: '#fff',
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+  },
+  iconButton: {
+    padding: 8,
+  },
+  inputWrapper: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F3F4F6',
+    borderRadius: 24, // Pill
+    marginHorizontal: 8,
+    paddingHorizontal: 12,
+    height: 44, // Fixed height for alignment
+  },
+  input: {
+    flex: 1,
+    fontSize: 15,
+    color: '#111827',
+    paddingVertical: 8, // Ensure centered text
+    maxHeight: 100,
+  },
+  iconButtonSmall: {
+    padding: 4,
+  },
+  sendButton: {
+    backgroundColor: '#F97316',
+    width: 44,
+    height: 44,
+    borderRadius: 14, // Rounded square
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 4,
+  },
+  sendButtonDisabled: {
+    backgroundColor: '#E5E7EB',
+  },
+  // Modal Styles
+  headerActionButton: {},
+  headerActionText: {},
+  // Modal...
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
+    alignItems: 'center',
     padding: 20,
   },
   modalContent: {
     backgroundColor: '#fff',
-    borderRadius: 12,
-    maxHeight: '80%',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    borderRadius: 8,
+    width: '90%',
+    maxHeight: '85%',
+    shadowColor: "#000",
+    shadowOffset: {
+        width: 0,
+        height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 4.65,
+    elevation: 8,
   },
   modalAvatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 90,
+    height: 90,
+    borderRadius: 45,
     marginBottom: 12,
   },
   modalName: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: 'bold',
-    marginBottom: 8,
-  },
-  modalLabel: {
-    fontSize: 14,
-    color: '#666',
+    color: '#333',
     marginBottom: 4,
-    fontWeight: '600',
-    marginTop: 12,
+    textAlign: 'center',
+  },
+  modalSpecialization: {
+    fontSize: 16,
+    color: '#666',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  modalRatingContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 0,
+  },
+  modalRatingText: {
+      fontSize: 16,
+      fontWeight: 'bold',
+      color: '#333',
+      marginLeft: 6,
+  },
+  divider: {
+      height: 1,
+      backgroundColor: '#E5E7EB',
+      width: '100%',
+      marginVertical: 16,
+  },
+  modalSection: {
+      marginBottom: 5,
+  },
+  modalSectionTitle: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      color: '#333',
+      marginBottom: 10,
   },
   modalText: {
-    fontSize: 16,
-    color: '#333',
-  }
+      fontSize: 15,
+      color: '#555',
+      lineHeight: 22,
+  },
+  infoRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginTop: 12,
+  },
+  infoText: {
+      fontSize: 15,
+      color: '#555',
+      marginLeft: 12,
+      fontWeight: '500', 
+  },
+  // Removed unused styles to keep it clean, but if needed I can leave them or update them
+  modalLabel: {
+    display: 'none',
+  },
 });
 
 export default ChatDetail;

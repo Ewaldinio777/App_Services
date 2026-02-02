@@ -159,7 +159,7 @@ const ProviderDetail: React.FC = () => {
   if (loading) {
     return (
       <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#007AFF" />
+        <ActivityIndicator size="large" color="#F97316" />
       </View>
     );
   }
@@ -176,7 +176,7 @@ const ProviderDetail: React.FC = () => {
     <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 40 }}>
       <View style={styles.header}>
         <View style={styles.avatarContainer}>
-          <Ionicons name="person-circle" size={80} color="#007AFF" />
+          <Ionicons name="person-circle" size={80} color="#F97316" />
         </View>
         <Text style={styles.providerName}>{profile.full_name || "Proveedor"}</Text>
         <Text style={styles.specialization}>
@@ -209,11 +209,15 @@ const ProviderDetail: React.FC = () => {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Información de Contacto</Text>
         <View style={styles.infoRow}>
-          <Ionicons name="call" size={20} color="#007AFF" />
+          <Ionicons name="call" size={20} color="#F97316" />
           <Text style={styles.infoText}>{profile.phone || "No disponible"}</Text>
         </View>
         <View style={styles.infoRow}>
-          <Ionicons name="card" size={20} color="#007AFF" />
+          <Ionicons name="location" size={20} color="#F97316" />
+          <Text style={styles.infoText}>{profile.state || "Estado no disponible"}</Text>
+        </View>
+        <View style={styles.infoRow}>
+          <Ionicons name="card" size={20} color="#F97316" />
           <Text style={styles.infoText}>{provider.id_number}</Text>
         </View>
       </View>
@@ -222,6 +226,7 @@ const ProviderDetail: React.FC = () => {
         <View style={styles.section}>
           <TouchableOpacity
             style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: isReviewsExpanded ? 10 : 0 }}
+            activeOpacity={1}
             onPress={() => setIsReviewsExpanded(!isReviewsExpanded)}
           >
             <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>Reseñas</Text>
@@ -364,7 +369,7 @@ const styles = StyleSheet.create({
   },
 contactButton: {
   flexDirection: "row",
-  backgroundColor: "#007AFF",
+  backgroundColor: "#F97316",
   margin: 20,
   marginBottom: 4,
   padding: 15,

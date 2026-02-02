@@ -520,7 +520,7 @@ const ProviderOrdersView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                                     <TouchableOpacity style={[styles.actionButton, {backgroundColor: '#eee', flex: 1}]} onPress={() => console.log("Chat")}>
                                         <Text style={{color:'#333'}}>Chatear</Text>
                                     </TouchableOpacity>
-                                    <TouchableOpacity style={[styles.actionButton, {backgroundColor: '#007AFF', flex: 1}]} onPress={() => updateStatus(order.id, 'completado')}>
+                                    <TouchableOpacity style={[styles.actionButton, {backgroundColor: '#F97316', flex: 1}]} onPress={() => updateStatus(order.id, 'completado')}>
                                         <Text style={{color:'#fff'}}>Finalizar Servicio</Text>
                                     </TouchableOpacity>
                                 </View>

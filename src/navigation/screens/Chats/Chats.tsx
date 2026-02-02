@@ -6,6 +6,7 @@ import { supabase } from "@/src/lib/supabase-client";
 import { Chat, Profile, Provider, Message } from "@/src/types/database.types";
 import { Ionicons } from "@react-native-vector-icons/ionicons";
 import { useNavigation, useRoute, RouteProp, useFocusEffect } from "@react-navigation/native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import type { MainTabParamList, RootStackParamList } from "../../types";
@@ -21,6 +22,7 @@ interface ChatWithDetails extends Chat {
 
 const Chats: React.FC = () => {
   const { session } = useAuth();
+  const insets = useSafeAreaInsets();
   const tabNavigation = useNavigation<BottomTabNavigationProp<MainTabParamList>>();
   const route = useRoute<RouteProp<MainTabParamList, "Chats">>();
   const [chats, setChats] = useState<ChatWithDetails[]>([]);
@@ -418,50 +420,83 @@ const Chats: React.FC = () => {
   }, [chats, searchQuery, selectedCategory, isCurrentUserProvider, viewMode]);
 
   if (!session) return <View style={styles.centerContainer}><Text>Error: Sesión no disponible.</Text></View>;
-  if (loading && !refreshing) return <View style={styles.centerContainer}><ActivityIndicator size="large" color="#007AFF" /></View>;
+  if (loading && !refreshing) return <View style={styles.centerContainer}><ActivityIndicator size="large" color="#F97316" /></View>;
 
   return (
     <View style={styles.container}>
       <ScrollView refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
-        <View style={styles.header}><Text style={styles.headerTitle}>Chat</Text></View>
+        {/* Header Area */}
+        <View style={[styles.header, { paddingTop: Math.max(insets.top, 20) }]}>
+          <Text style={styles.headerTitle}>Chat</Text>
+        </View>
         
-        {/* Search Bar y Filtros (Igual que antes) */}
+        {/* Search & Actions - Match Servicios logic */}
         <View style={styles.searchRow}>
           <View style={styles.searchInputContainer}>
-            <Ionicons name="search" size={18} color="#9AA0A6" />
+            <Ionicons name="search" size={20} color="#9CA3AF" />
             <TextInput
-              placeholder="Buscar proveedor"
-              placeholderTextColor="#9AA0A6"
+              placeholder="Buscar"
+              placeholderTextColor="#9CA3AF"
               style={styles.searchInput}
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
-             {searchQuery.length > 0 && (
-              <TouchableOpacity onPress={() => setSearchQuery("")} style={styles.clearButton}>
-                <Ionicons name="close-circle" size={18} color="#9AA0A6" />
-              </TouchableOpacity>
-            )}
           </View>
 
+         
+        </View>
+
+        {/* Filter Row - Match Servicios Pills */}
+        <View style={styles.filterRow}>
+          {/* Provider Toggle Pill */}
           {isCurrentUserProvider && (
             <TouchableOpacity
               style={[
-                styles.roleToggleButton,
-                viewMode === 'client' ? styles.roleToggleButtonClient : styles.roleToggleButtonProvider
+                styles.filterButton, 
+                styles.providerToggleButton,
+                viewMode === 'client' && styles.clientModeButton
               ]}
+              activeOpacity={0.8}
               onPress={() => setViewMode(prev => prev === 'provider' ? 'client' : 'provider')}
             >
-              <Text style={styles.roleToggleButtonText}>
-                {viewMode === 'provider' ? 'Eres proveedor' : 'Eres cliente'}
+              <Text style={[styles.filterText, styles.activeFilterText]}>
+                  {viewMode === 'provider' ? 'Modo Proveedor' : 'Modo Cliente'}
               </Text>
+              <Ionicons name="swap-horizontal" size={14} color="#fff" />
             </TouchableOpacity>
           )}
 
-          <TouchableOpacity style={styles.plusButton} onPress={() => setIsFilterOpen((prev) => !prev)}>
-            <Ionicons name="filter" size={22} color="#fff" />
+          {/* Category Filter Pill */}
+          <TouchableOpacity
+              style={[
+                styles.filterButton,
+                isFilterOpen && styles.activeFilterButton
+              ]}
+              activeOpacity={0.8}
+              onPress={() => setIsFilterOpen((prev) => !prev)}
+            >
+              <Ionicons 
+                name="grid-outline" 
+                size={16} 
+                color={isFilterOpen ? "#fff" : "#4B5563"} 
+              />
+              <Text 
+                style={[
+                  styles.filterText,
+                  isFilterOpen && styles.activeFilterText
+                ]}
+              >
+                {selectedCategory === "Todos" ? "Categoría" : selectedCategory}
+              </Text>
+              <Ionicons 
+                name={isFilterOpen ? "chevron-up" : "chevron-down"} 
+                size={12} 
+                color={isFilterOpen ? "#fff" : "#4B5563"} 
+              />
           </TouchableOpacity>
         </View>
 
+        {/* Filter Options Dropdown */}
         {isFilterOpen && (
           <View style={styles.filterOptions}>
             {categories.map((category) => (
@@ -478,107 +513,301 @@ const Chats: React.FC = () => {
           </View>
         )}
 
-        {filteredChats.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <Ionicons name="chatbubbles-outline" size={64} color="#ccc" />
-            <Text style={styles.emptyText}>No hay conversaciones</Text>
-          </View>
-        ) : (
-          filteredChats.map((chat) => (
-            <TouchableOpacity
-              key={chat.id}
-              style={styles.chatItem}
-              onPress={() => {
-                tabNavigation.getParent<NativeStackNavigationProp<RootStackParamList>>()?.navigate(
-                  "ChatDetail",
-                  { chatId: chat.id, otherParticipantId: chat.other_participant?.id }
-                );
-              }}
-            >
-              <View style={styles.avatarContainer}>
-                <Ionicons name="person-circle" size={54} color="#007AFF" />
-              </View>
-              <View style={styles.chatContent}>
-                <View style={styles.chatHeader}>
-                  <Text style={styles.chatName}>{chat.other_participant?.full_name || 'Usuario'}</Text>
-                  {chat.last_message_at && (
-                    <Text style={styles.chatTime}>{formatRelativeTime(chat.last_message_at)}</Text>
-                  )}
+        {/* Chat List */}
+        <View style={styles.listContainer}>
+          <Text style={styles.sectionHeader}>TODOS</Text>
+
+          {filteredChats.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Ionicons name="chatbubbles-outline" size={64} color="#ccc" />
+              <Text style={styles.emptyText}>No hay conversaciones</Text>
+            </View>
+          ) : (
+            filteredChats.map((chat) => {
+              const otherUserInitial = chat.other_participant?.full_name?.substring(0,1) || "U";
+              const isUnread = chat.last_message_sender_id !== session?.user.id && !chat.last_message_is_read;
+              
+              return (
+              <TouchableOpacity
+                key={chat.id}
+                style={styles.chatItem}
+                onPress={() => {
+                  tabNavigation.getParent<NativeStackNavigationProp<RootStackParamList>>()?.navigate(
+                    "ChatDetail",
+                    { chatId: chat.id, otherParticipantId: chat.other_participant?.id }
+                  );
+                }}
+              >
+                <View style={styles.avatarWrapper}>
+                   <View style={styles.avatarCircle}>
+                      <Text style={styles.avatarInitials}>{otherUserInitial}</Text>
+                   </View>
                 </View>
-                <View style={styles.chatFooter}>
-                  <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
-                    {chat.last_message_sender_id === session?.user.id && (
-                      <Ionicons
-                        name={chat.last_message_is_read ? "checkmark-done-outline" : "checkmark-outline"}
-                        size={16}
-                        color={chat.last_message_is_read ? "#34B7F1" : "#666"}
-                        style={{ marginRight: 4 }}
-                      />
+
+                <View style={styles.chatContent}>
+                  <View style={styles.chatHeader}>
+                    <Text style={styles.chatName} numberOfLines={1}>
+                      {chat.other_participant?.full_name || 'Usuario'}
+                    </Text>
+                    {chat.last_message_at && (
+                      <Text style={[styles.chatTime, isUnread && styles.chatTimeUnread]}>
+                        {formatRelativeTime(chat.last_message_at)}
+                      </Text>
                     )}
+                  </View>
+                  
+                  <View style={styles.chatFooter}>
                     <Text 
                       style={[
                         styles.chatLastMessage, 
-                        (chat.last_message_sender_id !== session?.user.id && !chat.last_message_is_read) && { fontWeight: 'bold', color: '#000' }
+                        isUnread && styles.chatLastMessageUnread
                       ]} 
                       numberOfLines={1} 
                       ellipsizeMode="tail"
                     >
-                      {chat.last_message || 'Inicia una conversación'}
+                      {chat.last_message || 'Inicia una conversación...'}
                     </Text>
+                    
+                    {isUnread && (
+                      <View style={styles.unreadBadge}>
+                        <Text style={styles.unreadBadgeText}>1</Text>
+                      </View>
+                    )}
                   </View>
                 </View>
-              </View>
-            </TouchableOpacity>
-          ))
-        )}
+              </TouchableOpacity>
+            )})
+          )}
+        </View>
       </ScrollView>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  // ... (Tus estilos existentes se mantienen igual)
-  container: { flex: 1, backgroundColor: '#f7f7f9' },
-  centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  header: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 4, backgroundColor: '#f7f7f9' },
-  headerTitle: { fontSize: 26, fontWeight: '700', color: '#111827' },
-  searchRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 8, paddingBottom: 10, gap: 8 },
-  searchInputContainer: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#F2F4F7', height: 36, paddingHorizontal: 12, borderRadius: 18 },
-  searchInput: { flex: 1, marginLeft: 8, fontSize: 14, color: '#111827' },
-  clearButton: { marginLeft: 6 },
-  plusButton: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#FF6A3D', alignItems: 'center', justifyContent: 'center' },
-  filterOptions: { paddingHorizontal: 16, paddingTop: 0, paddingBottom: 8, flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  filterOption: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14, backgroundColor: '#F2F4F7' },
-  filterOptionActive: { backgroundColor: '#E8F0FE' },
-  filterOptionText: { fontSize: 12, color: '#374151', fontWeight: '600' },
-  filterOptionTextActive: { color: '#007AFF' },
-  emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 60 },
-  emptyText: { marginTop: 16, fontSize: 16, color: '#999' },
-  chatItem: { flexDirection: 'row', padding: 14, marginHorizontal: 16, marginVertical: 6, backgroundColor: '#fff', borderRadius: 18, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 2 },
-  avatarContainer: { marginRight: 12 },
-  chatContent: { flex: 1 },
-  chatHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
-  chatName: { fontSize: 16, fontWeight: '600', color: '#111827' },
-  chatTime: { fontSize: 12, color: '#999' },
-  chatFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  chatLastMessage: { fontSize: 14, color: '#666', flex: 1 },
-  roleToggleButton: {
-    paddingHorizontal: 12,
-    height: 36,
-    borderRadius: 18,
+  container: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  centerContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  header: {
+    paddingHorizontal: 20,
+    paddingTop: 20, 
+    paddingBottom: 10,
+    backgroundColor: '#fff',
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#000',
+  },
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    marginBottom: 12, // Increased spacing
+    gap: 15,
+  },
+  searchInputContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff', // White background
+    height: 44,
+    paddingHorizontal: 15,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#F97316', // Orange border (Match Servicios)
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  searchInput: {
+    flex: 1,
+    marginLeft: 10,
+    fontSize: 14,
+    color: '#111827',
+  },
+  plusButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#F97316',
     alignItems: 'center',
     justifyContent: 'center',
+    elevation: 2,
   },
-  roleToggleButtonProvider: {
-    backgroundColor: '#111827', // Dark color like in the screenshot
+  // New Filters Row Styles
+  filterRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    gap: 10,
+    marginBottom: 10,
   },
-  roleToggleButtonClient: {
-    backgroundColor: '#007AFF', // Blue or different color
+  filterButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E8F0FE', // Light blue/gray for inactive
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20, // Pill
+    gap: 8,
   },
-  roleToggleButtonText: {
+  activeFilterButton: {
+    backgroundColor: '#F97316', // Active Orange
+  },
+  providerToggleButton: {
+      backgroundColor: '#F97316',
+      elevation: 3,
+      shadowColor: '#F97316',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.3,
+      shadowRadius: 3,
+  },
+  clientModeButton: {
+      backgroundColor: '#4B5563', // Dark Gray for Client Mode to differentiate
+      shadowColor: '#000',
+  },
+  filterText: {
+    fontSize: 14, // Slightly larger
+    fontWeight: '600',
+    color: '#4B5563',
+  },
+  activeFilterText: {
     color: '#fff',
+  },
+  // Legacy toggle styles (now removed from JSX but might be referenced if I didn't clean everything?)
+  roleToggleButton: {
+    // keeping for safety if needed, but not used in new JSX
+  },
+  // ...
+  filterOptions: {
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 10,
+  },
+  filterOption: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 14,
+    backgroundColor: '#F3F4F6',
+  },
+  filterOptionActive: {
+    backgroundColor: '#F97316',
+  },
+  filterOptionText: {
+    fontSize: 12,
+    color: '#374151',
+    fontWeight: '600',
+  },
+  filterOptionTextActive: {
+    color: '#fff',
+  },
+  listContainer: {
+    marginTop: 10,
+  },
+  sectionHeader: {
+    paddingHorizontal: 20,
     fontSize: 12,
     fontWeight: '600',
+    color: '#9CA3AF', 
+    marginBottom: 10,
+    letterSpacing: 1,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  emptyText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#999',
+  },
+  chatItem: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    paddingVertical: 14, // Comfy padding
+    backgroundColor: '#fff',
+    alignItems: 'center',
+  },
+  avatarWrapper: {
+    position: 'relative',
+    marginRight: 16,
+  },
+  avatarCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#FCE7D6',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarInitials: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#F97316',
+  },
+  chatContent: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  chatHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  chatName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#111827',
+  },
+  chatTime: {
+    fontSize: 12,
+    color: '#9CA3AF',
+  },
+  chatTimeUnread: {
+    color: '#F97316',
+    fontWeight: '600',
+  },
+  chatFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  chatLastMessage: {
+    fontSize: 14,
+    color: '#6B7280', 
+    flex: 1,
+    marginRight: 10,
+  },
+  chatLastMessageUnread: {
+    color: '#111827',
+    fontWeight: '500',
+  },
+  unreadBadge: {
+    backgroundColor: '#F97316',
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+  },
+  unreadBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: 'bold',
   },
 });
 

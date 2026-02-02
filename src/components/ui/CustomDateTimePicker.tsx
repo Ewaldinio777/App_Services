@@ -20,10 +20,10 @@ interface CustomDateTimePickerProps {
     maxDate?: Date;
 }
 
-const DAYS_OF_WEEK = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+const DAYS_OF_WEEK = ['Do', 'Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sa'];
 const MONTHS = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December'
+    'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+    'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
 ];
 
 export default function CustomDateTimePicker({ 
@@ -87,11 +87,11 @@ export default function CustomDateTimePicker({
 
         dateToCheck.setHours(23, 59, 59, 999); 
 
-        if (minDate && !isNaN(minDate.getTime())) {
-            const min = new Date(minDate);
-            min.setHours(0, 0, 0, 0);
-            if (dateToCheck < min) return true;
-        }
+        // Use minDate prop or default to today (00:00:00) to prevent past dates
+        const effectiveMinDate = minDate ? new Date(minDate) : new Date();
+        effectiveMinDate.setHours(0,0,0,0);
+
+        if (dateToCheck < effectiveMinDate) return true;
 
         if (maxDate && !isNaN(maxDate.getTime())) {
             const max = new Date(maxDate);
@@ -106,11 +106,15 @@ export default function CustomDateTimePicker({
     };
 
     const handlePrevMonth = () => {
-        const prevDate = new Date(currentYear, currentMonth - 1, 1);
-        // Allow going back if the end of previous month is not before minDate
-        const prevMonthEnd = new Date(currentYear, currentMonth, 0);
+        // Check against effective min date
+        const effectiveMinDate = minDate ? new Date(minDate) : new Date();
+        effectiveMinDate.setDate(1); // Compare months
+        effectiveMinDate.setHours(0,0,0,0);
+
+        const currentMonthStart = new Date(currentYear, currentMonth, 1);
         
-        if (minDate && prevMonthEnd < minDate) return; 
+        // If current month is same or before min month, don't go back
+        if (currentMonthStart <= effectiveMinDate) return;
 
         if (currentMonth === 0) {
             setCurrentMonth(11);
@@ -165,12 +169,31 @@ export default function CustomDateTimePicker({
     };
 
     const generateTimeSlots = () => {
-        const times = [];
+        const times: string[] = [];
+        const now = new Date();
+        const isToday = selectedDate.getDate() === now.getDate() && 
+                        selectedDate.getMonth() === now.getMonth() && 
+                        selectedDate.getFullYear() === now.getFullYear();
+
         for (let i = 8; i <= 20; i++) { // 8 AM to 8 PM
             const hour = i > 12 ? i - 12 : i;
             const ampm = i >= 12 ? 'PM' : 'AM';
-            times.push(`${hour}:00 ${ampm}`);
-            times.push(`${hour}:30 ${ampm}`);
+            
+            // Slot 1: i:00
+            const slot1Date = new Date(selectedDate);
+            slot1Date.setHours(i, 0, 0, 0);
+            
+            if (!isToday || slot1Date > now) {
+                times.push(`${hour}:00 ${ampm}`);
+            }
+
+            // Slot 2: i:30
+            const slot2Date = new Date(selectedDate);
+            slot2Date.setHours(i, 30, 0, 0);
+            
+            if (!isToday || slot2Date > now) {
+                times.push(`${hour}:30 ${ampm}`);
+            }
         }
         return times;
     };
@@ -225,6 +248,7 @@ export default function CustomDateTimePicker({
                                         ]}
                                         onPress={() => day && handleDateSelect(day)}
                                         disabled={!!disabled}
+                                        activeOpacity={0.8}
                                     >
                                         <Text style={[
                                             styles.dayText,
@@ -249,6 +273,7 @@ export default function CustomDateTimePicker({
                                             selectedTime === time && styles.selectedTimeSlot
                                         ]}
                                         onPress={() => handleTimeSelect(time)}
+                                        activeOpacity={0.8}
                                     >
                                         <Text style={[
                                             styles.timeText,
@@ -265,10 +290,10 @@ export default function CustomDateTimePicker({
                     {/* Footer: Actions */}
                     <View style={styles.footer}>
                         <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
-                            <Text style={styles.cancelButtonText}>Cancel</Text>
+                            <Text style={styles.cancelButtonText}>Cancelar</Text>
                         </TouchableOpacity>
                         <TouchableOpacity style={styles.confirmButton} onPress={handleConfirm}>
-                            <Text style={styles.confirmButtonText}>Schedule</Text>
+                            <Text style={styles.confirmButtonText}>Aceptar</Text>
                         </TouchableOpacity>
                     </View>
 
@@ -325,24 +350,25 @@ const styles = StyleSheet.create({
         height: 300,
     },
     calendarContainer: {
-        flex: 2, // Take up 2/3 of space
-        marginRight: 10,
+        flex: 3, // Ajuste de proporción (60%)
+        marginRight: 24, // Mayor separación
     },
     timeContainer: {
-        flex: 1, // Take up 1/3 of space
+        flex: 2, // Ajuste de proporción (40%) - Más espacio para las horas
         borderLeftWidth: 1,
         borderLeftColor: '#f0f0f0',
-        paddingLeft: 10,
+        paddingLeft: 12,
     },
     weekDays: {
         flexDirection: 'row',
-        justifyContent: 'space-around',
+        justifyContent: 'flex-start',
         marginBottom: 10,
+        width: '100%',
     },
     weekDayText: {
         color: '#888',
         fontSize: 12,
-        width: 30,
+        width: '14.28%',
         textAlign: 'center',
     },
     daysGrid: {
@@ -361,7 +387,7 @@ const styles = StyleSheet.create({
         backgroundColor: 'transparent',
     },
     selectedDayCell: {
-        backgroundColor: '#6B4EFF', // Purple accent
+        backgroundColor: '#F97316', // Orange
         borderRadius: 8,
     },
     dayText: {
@@ -391,7 +417,7 @@ const styles = StyleSheet.create({
     },
     selectedTimeText: {
         fontWeight: 'bold',
-        color: '#6B4EFF',
+        color: '#F97316',
     },
     footer: {
         flexDirection: 'row',
@@ -413,7 +439,7 @@ const styles = StyleSheet.create({
         fontWeight: '600',
     },
     confirmButton: {
-        backgroundColor: '#6B4EFF',
+        backgroundColor: '#F97316',
         paddingVertical: 10,
         paddingHorizontal: 20,
         borderRadius: 8,

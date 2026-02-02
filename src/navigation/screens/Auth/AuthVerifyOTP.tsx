@@ -259,7 +259,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   resendText: {
-    color: "#007AFF",
+    color: "#F97316",
     fontSize: 16,
   },
   backLink: {
@@ -267,7 +267,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   backText: {
-    color: "#007AFF",
+    color: "#F97316",
     fontSize: 16,
   },
 });

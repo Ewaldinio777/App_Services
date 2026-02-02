@@ -110,7 +110,7 @@ const Perfil: React.FC = () => {
   if (loading) {
     return (
       <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#007AFF" />
+        <ActivityIndicator size="large" color="#F97316" />
       </View>
     );
   }
@@ -119,7 +119,7 @@ const Perfil: React.FC = () => {
     <ScrollView style={styles.container}>
       <View style={styles.header}>
         <View style={styles.avatarContainer}>
-          <Ionicons name="person-circle" size={100} color="#007AFF" />
+          <Ionicons name="person-circle" size={100} color="#F97316" />
         </View>
         <Text style={styles.email}>{session.user.email}</Text>
       </View>
@@ -368,7 +368,7 @@ const styles = StyleSheet.create({
     gap: 5,
   },
   providerBadge: {
-    backgroundColor: '#007AFF',
+    backgroundColor: '#F97316',
   },
   clientBadge: {
     backgroundColor: '#34C759',
@@ -392,7 +392,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   editButton: {
-    backgroundColor: '#007AFF',
+    backgroundColor: '#F97316',
   },
   saveButton: {
     backgroundColor: '#34C759',

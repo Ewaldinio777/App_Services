@@ -59,13 +59,13 @@ export default function AuthSignUp() {
     <View style={styles.container}>
       {/*First Name Input */}
       <View style={[styles.verticallySpaced, styles.mt20]}>
-        <Text style={styles.label}>First Name</Text>
+        <Text style={styles.label}>Nombre</Text>
         <Input variant="outline" size="md">
           <InputField
             style={styles.input}
             onChangeText={setFirstName}
             value={firstName}
-            placeholder="First Name"
+            placeholder="Escribe tu nombre"
             autoCapitalize="words" 
           />
         </Input>
@@ -73,13 +73,13 @@ export default function AuthSignUp() {
 
       {/*Last Name Input */}
       <View style={styles.verticallySpaced}>
-        <Text style={styles.label}>Last Name</Text>
+        <Text style={styles.label}>Apellido</Text>
         <Input variant="outline" size="md">
           <InputField
             style={styles.input}
             onChangeText={setLastName}
             value={lastName}
-            placeholder="Last Name"
+            placeholder="Escribe tu apellido"
             autoCapitalize="words"
           />
         </Input>
@@ -87,11 +87,11 @@ export default function AuthSignUp() {
 
       {/* Address Input (State Picker) */}
       <View style={styles.verticallySpaced}>
-        <Text style={styles.label}>Address (State)</Text>
+        <Text style={styles.label}>Dirección (Estado)</Text>
         <TouchableOpacity onPress={() => setModalVisible(true)}>
           <View style={[styles.input, { justifyContent: "center" }]}>
             <Text style={{ color: state ? "#000" : "#ccc" }}>
-              {state || "Select State"}
+              {state || "Selecciona Estado"}
             </Text>
           </View>
         </TouchableOpacity>
@@ -105,7 +105,7 @@ export default function AuthSignUp() {
       >
         <View style={styles.modalCenteredView}>
           <View style={styles.modalView}>
-            <Text style={[styles.label, { alignSelf: 'center', fontWeight: 'bold' }]}>Select State</Text>
+            <Text style={[styles.label, { alignSelf: 'center', fontWeight: 'bold' }]}>Selecciona Estado</Text>
             <FlatList
               data={VENEZUELA_STATES}
               keyExtractor={(item) => item}
@@ -129,7 +129,7 @@ export default function AuthSignUp() {
               action="secondary"
               style={{ marginTop: 15, width: '100%' }}
             >
-              <ButtonText>Cancel</ButtonText>
+              <ButtonText>Cancelar</ButtonText>
             </Button>
           </View>
         </View>
@@ -137,7 +137,7 @@ export default function AuthSignUp() {
 
       {/* Email Input */}
       <View style={styles.verticallySpaced}>
-        <Text style={styles.label}>Email</Text>
+        <Text style={styles.label}>Correo Electrónico</Text>
         <Input variant="outline" size="md">
           <InputField
             style={styles.input}
@@ -152,13 +152,13 @@ export default function AuthSignUp() {
 
       {/* Password Input */}
       <View style={styles.verticallySpaced}>
-        <Text style={styles.label}>Password</Text>
+        <Text style={styles.label}>Contraseña</Text>
         <Input variant="outline" size="md">
           <InputField
             style={styles.input}
             onChangeText={setPassword}
             value={password}
-            placeholder="Password"
+            placeholder="Escribe tu contraseña"
             secureTextEntry={true}
             autoCapitalize="none"
           />
@@ -167,7 +167,7 @@ export default function AuthSignUp() {
 
       <View style={styles.verticallySpaced}>
         <Button disabled={loading} onPress={() => signUpWithEmail()}>
-          <ButtonText>Sign Up</ButtonText>
+          <ButtonText>Registrarse</ButtonText>
         </Button>
       </View>
       
@@ -178,7 +178,7 @@ export default function AuthSignUp() {
           size="md"
           action="secondary"
         >
-          <ButtonText>Already have an account? Sign In</ButtonText>
+          <ButtonText>¿Ya tienes una cuenta? Inicia Sesión</ButtonText>
         </Button>
       </View>
     </View>
