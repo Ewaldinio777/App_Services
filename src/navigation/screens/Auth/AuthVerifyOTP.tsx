@@ -1,15 +1,20 @@
 import React, { useState, useEffect } from "react";
-import { Alert, StyleSheet, View, TouchableOpacity } from "react-native";
+import { Alert, StyleSheet, View, TouchableOpacity, KeyboardAvoidingView, Platform } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "../../../lib/supabase-client";
 import { Button, ButtonText } from "../../../components/ui/button";
-import { Input, InputField } from "../../../components/ui/input";
+import { Input, InputField, InputSlot, InputIcon } from "../../../components/ui/input";
 import { Text } from "../../../components/ui/text";
+import { VStack } from "../../../components/ui/vstack";
 import { useNavigation, useRoute } from "@react-navigation/native";
+import { Icon, ArrowLeftIcon, EyeIcon, EyeOffIcon } from "../../../components/ui/icon";
 
 export default function AuthVerifyOTP() {
   const [otp, setOtp] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [type, setType] = useState<"reset" | "signup">("reset");
@@ -18,6 +23,14 @@ export default function AuthVerifyOTP() {
 
   const navigation = useNavigation();
   const route = useRoute();
+
+  const handleNewPasswordState = () => {
+    setShowNewPassword((showState) => !showState);
+  };
+
+  const handleConfirmPasswordState = () => {
+    setShowConfirmPassword((showState) => !showState);
+  };
 
   useEffect(() => {
     if (route.params) {
@@ -89,6 +102,7 @@ export default function AuthVerifyOTP() {
           [
             {
               text: "OK",
+              onPress: () => navigation.navigate("Auth" as never),
             },
           ]
         );
@@ -103,7 +117,7 @@ export default function AuthVerifyOTP() {
   async function handleResendOTP() {
     setLoading(true);
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: "expousermanagement://reset-password",
+      redirectTo: "https://whxpvqdrgpxgjurvlczg.supabase.co/auth/v1/callback", 
     });
 
     if (error) {
@@ -118,137 +132,140 @@ export default function AuthVerifyOTP() {
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Verificar Código OTP</Text>
-      <Text style={styles.subtitle}>
-        Hemos enviado un código de 6 dígitos a {email}
-      </Text>
-
-      <View style={[styles.verticallySpaced, styles.mt20]}>
-        <Text style={styles.label}>Código OTP</Text>
-        <Input
-          variant="outline"
-          size="md"
-        >
-          <InputField
-            style={styles.input}
-            onChangeText={setOtp}
-            value={otp}
-            placeholder="Ingresa el código de 6 dígitos"
-            keyboardType="number-pad"
-            maxLength={6}
-          />
-        </Input>
-      </View>
-
-      {type === "reset" && (
-        <>
-          <View style={styles.verticallySpaced}>
-            <Text style={styles.label}>Nueva Contraseña</Text>
-            <Input
-              variant="outline"
-              size="md"
-            >
-              <InputField
-                style={styles.input}
-                onChangeText={setNewPassword}
-                value={newPassword}
-                placeholder="Nueva contraseña"
-                secureTextEntry={true}
-              />
-            </Input>
-          </View>
-
-          <View style={styles.verticallySpaced}>
-            <Text style={styles.label}>Confirmar Contraseña</Text>
-            <Input
-              variant="outline"
-              size="md"
-            >
-              <InputField
-                style={styles.input}
-                onChangeText={setConfirmPassword}
-                value={confirmPassword}
-                placeholder="Confirmar contraseña"
-                secureTextEntry={true}
-              />
-            </Input>
-          </View>
-        </>
-      )}
-
-      <View style={[styles.verticallySpaced, styles.mt20]}>
-        <Button
-          disabled={loading || !otp || (type === "reset" && (!newPassword || !confirmPassword))}
-          onPress={handleVerifyOTP}
-        >
-          <ButtonText>
-            {type === "reset" ? "Restablecer Contraseña" : "Verificar Código"}
-          </ButtonText>
-        </Button>
-      </View>
-
-      <View style={styles.resendContainer}>
-        {!canResend ? (
-          <Text style={styles.timerText}>
-            Reenviar código en {timer} segundos
-          </Text>
-        ) : (
-          <TouchableOpacity onPress={handleResendOTP} disabled={loading}>
-            <Text style={styles.resendText}>Reenviar código OTP</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-
-      <TouchableOpacity
-        onPress={() => navigation.navigate("Auth")}
-        style={styles.backLink}
+    <SafeAreaView style={styles.safeArea}>
+      <KeyboardAvoidingView 
+        style={styles.container} 
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
-        <Text style={styles.backText}>Volver al inicio de sesión</Text>
-      </TouchableOpacity>
-    </View>
+        <View style={styles.header}>
+            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+                 <Icon as={ArrowLeftIcon} size="xl" className="text-black" />
+            </TouchableOpacity>
+        </View>
+
+        <View style={styles.content}>
+            <Text style={styles.title}>Verificar Código</Text>
+            <Text style={styles.subtitle}>Hemos enviado un código de 6 dígitos a {email}</Text>
+
+            <VStack space="md" style={styles.formContainer}>
+                <Input
+                    variant="outline"
+                    size="lg"
+                    style={styles.inputWrapper}
+                >
+                    <InputField
+                      onChangeText={setOtp}
+                      value={otp}
+                      placeholder="Código OTP (6 dígitos)"
+                      keyboardType="number-pad"
+                      maxLength={6}
+                      style={styles.inputField}
+                    />
+                </Input>
+                
+                {type === 'reset' && (
+                    <>
+                        <Input variant="outline" size="lg" style={styles.inputWrapper}>
+                        <InputField
+                            onChangeText={setNewPassword}
+                            value={newPassword}
+                            placeholder="Nueva contraseña"
+                            secureTextEntry={!showNewPassword}
+                            style={styles.inputField}
+                        />
+                        <InputSlot onPress={handleNewPasswordState} style={{ paddingRight: 10 }}>
+                          <InputIcon as={showNewPassword ? EyeIcon : EyeOffIcon} />
+                        </InputSlot>
+                        </Input>
+                        <Input variant="outline" size="lg" style={styles.inputWrapper}>
+                        <InputField
+                            onChangeText={setConfirmPassword}
+                            value={confirmPassword}
+                            placeholder="Confirmar contraseña"
+                            secureTextEntry={!showConfirmPassword}
+                            style={styles.inputField}
+                        />
+                        <InputSlot onPress={handleConfirmPasswordState} style={{ paddingRight: 10 }}>
+                          <InputIcon as={showConfirmPassword ? EyeIcon : EyeOffIcon} />
+                        </InputSlot>
+                        </Input>
+                    </>
+                )}
+
+                <Button
+                    disabled={loading}
+                    onPress={handleVerifyOTP}
+                    size="lg"
+                    style={styles.continueButton}
+                >
+                    <ButtonText>{type === "reset" ? "Restablecer contraseña" : "Verificar"}</ButtonText>
+                </Button>
+
+                <View style={styles.resendContainer}>
+                  {!canResend ? (
+                    <Text style={styles.timerText}>
+                      Reenviar código en {timer} segundos
+                    </Text>
+                  ) : (
+                    <TouchableOpacity onPress={handleResendOTP} disabled={loading}>
+                      <Text style={styles.resendText}>Reenviar código OTP</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+            </VStack>
+        </View>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
   container: {
     flex: 1,
-    padding: 20,
-    justifyContent: "center",
+    padding: 16,
+  },
+  header: {
+    paddingVertical: 10,
+    marginBottom: 10,
+  },
+  backButton: {
+    padding: 4,
+  },
+  content: {
+    flex: 1,
+    paddingTop: 10,
   },
   title: {
     fontSize: 24,
-    fontWeight: "bold",
-    textAlign: "center",
-    marginBottom: 10,
+    fontWeight: 'bold',
+    marginBottom: 8,
+    color: '#000',
   },
   subtitle: {
     fontSize: 16,
-    textAlign: "center",
-    color: "#666",
-    marginBottom: 30,
+    color: '#333',
+    marginBottom: 24,
   },
-  verticallySpaced: {
-    paddingTop: 4,
-    paddingBottom: 4,
-    alignSelf: "stretch",
+  formContainer: {
+    width: '100%',
   },
-  mt20: {
-    marginTop: 20,
+  inputWrapper: {
+    borderRadius: 8,
+    borderColor: '#ccc',
+    backgroundColor: '#fff',
   },
-  label: {
-    marginBottom: 6,
-    fontSize: 16,
-    color: "#444",
+  inputField: {
+    // optional
   },
-  input: {
-    height: 44,
-    borderColor: "#ccc",
-    color: "#000",
-    borderWidth: 1,
-    borderRadius: 4,
-    paddingHorizontal: 8,
-    backgroundColor: "#fff",
+  continueButton: {
+    borderRadius: 25,
+    marginTop: 16,
+    backgroundColor: '#F97316',
   },
   resendContainer: {
     marginTop: 20,
@@ -259,15 +276,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   resendText: {
-    color: "#F97316",
+    color: "#F97316", // Using primary color
     fontSize: 16,
-  },
-  backLink: {
-    marginTop: 30,
-    alignItems: "center",
-  },
-  backText: {
-    color: "#F97316",
-    fontSize: 16,
+    fontWeight: 'bold',
   },
 });

@@ -275,7 +275,7 @@ const ClientOrdersView: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
       return { text: status, color: '#333' };
   };
 
-  if (loading) return <View style={styles.centerContainer}><ActivityIndicator size="large" color="#6B4EFF" /></View>;
+  if (loading) return <View style={styles.centerContainer}><ActivityIndicator size="large" color="#F97316" /></View>;
 
   return (
     <View style={styles.container}>
@@ -556,7 +556,7 @@ const ProviderOrdersView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             </View>
 
             <ScrollView contentContainerStyle={styles.listContent}>
-                {loading ? <ActivityIndicator color="#6B4EFF" /> : filtered.length === 0 ? (
+                {loading ? <ActivityIndicator color="#F97316" /> : filtered.length === 0 ? (
                     <Text style={styles.emptyText}>No hay solicitudes en esta categoría.</Text>
                 ) : (
                     filtered.map(order => (
@@ -975,7 +975,7 @@ const Ordenes: React.FC = () => {
         }, [route.params?.initialView, profile])
     );
 
-    if (loading) return <View style={styles.centerContainer}><ActivityIndicator size="large" color="#6B4EFF"/></View>;
+    if (loading) return <View style={styles.centerContainer}><ActivityIndicator size="large" color="#F97316"/></View>;
 
     if (viewMode === 'client_orders') {
         // If user is NOT provider, show client view directly (no back button to menu)
@@ -1046,7 +1046,7 @@ const styles = StyleSheet.create({
   statsRow: { flexDirection: 'row', justifyContent: 'space-around', padding: 20, backgroundColor: '#fff' },
   statBox: { alignItems: 'center' },
   statLabel: { fontSize: 12, color: '#666' },
-  statValue: { fontSize: 20, fontWeight: 'bold', color: '#6B4EFF' },
+  statValue: { fontSize: 20, fontWeight: 'bold', color: '#F97316' },
 
   /* Modal Styles */
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 },

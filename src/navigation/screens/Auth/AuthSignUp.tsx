@@ -1,10 +1,15 @@
 import React, { useState } from "react";
-import { Alert, StyleSheet, View, Modal, FlatList, TouchableOpacity } from "react-native";
+import { Alert, StyleSheet, View, Modal, FlatList, TouchableOpacity, Image, KeyboardAvoidingView, Platform, ScrollView } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "../../../lib/supabase-client";
 import { Button, ButtonText } from "../../../components/ui/button";
-import { Input, InputField } from "../../../components/ui/input";
+import { Input, InputField, InputSlot, InputIcon } from "../../../components/ui/input";
 import { Text } from "../../../components/ui/text";
+import { VStack } from "../../../components/ui/vstack";
 import { useNavigation } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { AuthStackParamList } from "../../types";
+import { EyeIcon, EyeOffIcon } from "../../../components/ui/icon";
 
 const VENEZUELA_STATES = [
   "Amazonas", "Anzoátegui", "Apure", "Aragua", "Barinas", "Bolívar", 
@@ -15,18 +20,39 @@ const VENEZUELA_STATES = [
 ];
 
 export default function AuthSignUp() {
-  // 1. Add State for First and Last Name
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [state, setState] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
-  const navigation = useNavigation();
+  const navigation = useNavigation<NativeStackNavigationProp<AuthStackParamList>>();
+
+  const handleState = () => {
+    setShowPassword((showState) => {
+      return !showState
+    })
+  }
+
+  const handleConfirmState = () => {
+    setShowConfirmPassword((showState) => {
+      return !showState
+    })
+  }
 
   async function signUpWithEmail() {
     setLoading(true);
+
+    if (password !== confirmPassword) {
+      setLoading(false);
+      Alert.alert("Error", "Las contraseñas no coinciden");
+      return;
+    }
+
     const fullName = [firstName, lastName].filter(Boolean).join(" ").trim();
     const {
       data: { session },
@@ -35,67 +61,116 @@ export default function AuthSignUp() {
       email: email,
       password: password,
       options: {
-        // 2. Pass the state variables here
         data: {
           full_name: fullName || null,
           state: state || null,
           is_provider: false,
-          // You can access this later via supabase.auth.user().user_metadata
         },
       },
     });
 
-
-
-  if (error) {
-  Alert.alert("Error de registro", error.message);
-} else if (!session) {
-  Alert.alert("¡Casi listo!", "Por favor revisa tu correo para confirmar tu cuenta.");
-  navigation.navigate("Auth"); // Redirigir al login
-}
-}
+    if (error) {
+      Alert.alert("Error de registro", error.message);
+    } else if (!session) {
+      Alert.alert("¡Casi listo!", "Por favor revisa tu correo para confirmar tu cuenta.");
+      navigation.navigate("Auth");
+    }
+  }
 
   return (
-    <View style={styles.container}>
-      {/*First Name Input */}
-      <View style={[styles.verticallySpaced, styles.mt20]}>
-        <Text style={styles.label}>Nombre</Text>
-        <Input variant="outline" size="md">
-          <InputField
-            style={styles.input}
-            onChangeText={setFirstName}
-            value={firstName}
-            placeholder="Escribe tu nombre"
-            autoCapitalize="words" 
-          />
-        </Input>
-      </View>
-
-      {/*Last Name Input */}
-      <View style={styles.verticallySpaced}>
-        <Text style={styles.label}>Apellido</Text>
-        <Input variant="outline" size="md">
-          <InputField
-            style={styles.input}
-            onChangeText={setLastName}
-            value={lastName}
-            placeholder="Escribe tu apellido"
-            autoCapitalize="words"
-          />
-        </Input>
-      </View>
-
-      {/* Address Input (State Picker) */}
-      <View style={styles.verticallySpaced}>
-        <Text style={styles.label}>Dirección (Estado)</Text>
-        <TouchableOpacity onPress={() => setModalVisible(true)}>
-          <View style={[styles.input, { justifyContent: "center" }]}>
-            <Text style={{ color: state ? "#000" : "#ccc" }}>
-              {state || "Selecciona Estado"}
-            </Text>
+    <SafeAreaView style={styles.safeArea}>
+      <KeyboardAvoidingView 
+        style={styles.container} 
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      >
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          <View style={styles.logoContainer}>
+             <Image 
+                source={require('../../../../assets/LOGO.png')} 
+                style={styles.logo}
+                resizeMode="contain"
+              />
           </View>
-        </TouchableOpacity>
-      </View>
+
+          <VStack space="md" style={styles.formContainer}>
+            <View style={styles.nameContainer}>
+                <Input variant="outline" size="lg" style={[styles.inputWrapper, { flex: 1, marginRight: 5 }]}>
+                  <InputField
+                    style={styles.inputField}
+                    onChangeText={setFirstName}
+                    value={firstName}
+                    placeholder="Nombre"
+                    autoCapitalize="words" 
+                  />
+                </Input>
+                <Input variant="outline" size="lg" style={[styles.inputWrapper, { flex: 1, marginLeft: 5 }]}>
+                  <InputField
+                    style={styles.inputField}
+                    onChangeText={setLastName}
+                    value={lastName}
+                    placeholder="Apellido"
+                    autoCapitalize="words"
+                  />
+                </Input>
+            </View>
+
+            <TouchableOpacity onPress={() => setModalVisible(true)}>
+              <View style={[styles.inputWrapper, styles.pickerContainer]}>
+                <Text style={{ color: state ? "#000" : "#ccc", fontSize: 16 }}>
+                  {state || "Selecciona Estado"}
+                </Text>
+              </View>
+            </TouchableOpacity>
+
+            <Input variant="outline" size="lg" style={styles.inputWrapper}>
+              <InputField
+                style={styles.inputField}
+                onChangeText={setEmail}
+                value={email}
+                placeholder="Correo electrónico"
+                autoCapitalize="none"
+                keyboardType="email-address"
+              />
+            </Input>
+
+            <Input variant="outline" size="lg" style={styles.inputWrapper}>
+              <InputField
+                style={styles.inputField}
+                onChangeText={setPassword}
+                value={password}
+                placeholder="Contraseña"
+                secureTextEntry={!showPassword}
+                autoCapitalize="none"
+              />
+              <InputSlot onPress={handleState} style={{ paddingRight: 10 }}>
+                <InputIcon as={showPassword ? EyeIcon : EyeOffIcon} />
+              </InputSlot>
+            </Input>
+
+            <Input variant="outline" size="lg" style={styles.inputWrapper}>
+              <InputField
+                style={styles.inputField}
+                onChangeText={setConfirmPassword}
+                value={confirmPassword}
+                placeholder="Confirmar Contraseña"
+                secureTextEntry={!showConfirmPassword}
+                autoCapitalize="none"
+              />
+              <InputSlot onPress={handleConfirmState} style={{ paddingRight: 10 }}>
+                <InputIcon as={showConfirmPassword ? EyeIcon : EyeOffIcon} />
+              </InputSlot>
+            </Input>
+
+            <Button disabled={loading} onPress={() => signUpWithEmail()} size="lg" style={styles.registerButton}>
+              <ButtonText>Registrarte</ButtonText>
+            </Button>
+            
+            <TouchableOpacity onPress={() => navigation.navigate("Auth")} style={styles.loginLinkContainer}>
+                <Text style={styles.loginLinkText}>¿Ya tienes una cuenta? Inicia sesión</Text>
+            </TouchableOpacity>
+          </VStack>
+        </ScrollView>
+      </KeyboardAvoidingView>
 
       <Modal
         animationType="slide"
@@ -120,7 +195,7 @@ export default function AuthSignUp() {
                   <Text style={styles.modalItemText}>{item}</Text>
                 </TouchableOpacity>
               )}
-              style={{ maxHeight: 400, width: "100%" }}
+              style={styles.modalList}
             />
             <Button
               onPress={() => setModalVisible(false)}
@@ -134,83 +209,73 @@ export default function AuthSignUp() {
           </View>
         </View>
       </Modal>
-
-      {/* Email Input */}
-      <View style={styles.verticallySpaced}>
-        <Text style={styles.label}>Correo Electrónico</Text>
-        <Input variant="outline" size="md">
-          <InputField
-            style={styles.input}
-            onChangeText={setEmail}
-            value={email}
-            placeholder="Email"
-            autoCapitalize="none"
-            keyboardType="email-address"
-          />
-        </Input>
-      </View>
-
-      {/* Password Input */}
-      <View style={styles.verticallySpaced}>
-        <Text style={styles.label}>Contraseña</Text>
-        <Input variant="outline" size="md">
-          <InputField
-            style={styles.input}
-            onChangeText={setPassword}
-            value={password}
-            placeholder="Escribe tu contraseña"
-            secureTextEntry={true}
-            autoCapitalize="none"
-          />
-        </Input>
-      </View>
-
-      <View style={styles.verticallySpaced}>
-        <Button disabled={loading} onPress={() => signUpWithEmail()}>
-          <ButtonText>Registrarse</ButtonText>
-        </Button>
-      </View>
-      
-      <View style={styles.verticallySpaced}>
-        <Button
-          onPress={() => navigation.navigate("Auth")}
-          variant="solid"
-          size="md"
-          action="secondary"
-        >
-          <ButtonText>¿Ya tienes una cuenta? Inicia Sesión</ButtonText>
-        </Button>
-      </View>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
   container: {
-    marginTop: 40,
-    padding: 12,
+    flex: 1,
+    padding: 16,
   },
-  verticallySpaced: {
-    paddingTop: 4,
-    paddingBottom: 4,
-    alignSelf: "stretch",
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingBottom: 20,
   },
-  mt20: {
+  logoContainer: {
+    marginBottom: 30,
+    alignItems: 'center',
+  },
+  logo: {
+    width: 100,
+    height: 100,
+  },
+  formContainer: {
+    width: '100%',
+  },
+  nameContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 0,
+  },
+  inputWrapper: {
+    borderRadius: 8,
+    backgroundColor: '#fff',
+    borderColor: '#ccc',
+    marginBottom: 0, // Vstack handles spacing mostly, but be careful
+  },
+  inputField: {
+    fontSize: 16,
+  },
+  pickerContainer: {
+    height: 48, // approximate lg input height
+    justifyContent: "center",
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderRadius: 8,
+  },
+  registerButton: {
+    borderRadius: 25,
+    marginTop: 10,
+    backgroundColor: '#F97316', // Orange color
+  },
+  loginLinkContainer: {
+    alignItems: 'center',
     marginTop: 20,
   },
+  loginLinkText: {
+    color: '#F97316', // Orange color
+    fontWeight: 'bold',
+  },
   label: {
-    marginBottom: 6,
+    marginBottom: 8,
     fontSize: 16,
     color: "#444",
-  },
-  input: {
-    height: 44,
-    borderColor: "#ccc",
-    color: "#000",
-    borderWidth: 1,
-    borderRadius: 4,
-    paddingHorizontal: 8,
-    backgroundColor: "#fff",
   },
   modalCenteredView: {
     flex: 1,
@@ -232,6 +297,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 4,
     elevation: 5,
+    maxHeight: '80%',
   },
   modalItem: {
     padding: 15,
@@ -244,4 +310,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
     color: "#333",
   },
+  modalList: {
+    minWidth: '100%',
+  }
 });

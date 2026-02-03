@@ -1,18 +1,27 @@
 import React, { useState } from "react";
-import { Alert, StyleSheet, View, TouchableOpacity } from "react-native";
+import { Alert, StyleSheet, View, TouchableOpacity, Image, KeyboardAvoidingView, Platform } from "react-native";
 import { supabase } from "../../../lib/supabase-client";
 import { Button, ButtonText } from "../../../components/ui/button";
-import { Input, InputField } from "../../../components/ui/input";
+import { Input, InputField, InputSlot, InputIcon } from "../../../components/ui/input";
 import { Text } from "../../../components/ui/text";
+import { VStack } from "../../../components/ui/vstack";
 import { useNavigation } from "@react-navigation/native";
 import type { AuthStackParamList } from "../../types";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { EyeIcon, EyeOffIcon } from "../../../components/ui/icon";
 
 export default function Auth() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const navigation = useNavigation<NativeStackNavigationProp<AuthStackParamList>>();
+
+  const handleState = () => {
+    setShowPassword((showState) => {
+      return !showState
+    })
+  }
 
   async function signInWithEmail() {
     setLoading(true);
@@ -26,101 +35,142 @@ export default function Auth() {
   }
 
   return (
-    <View style={styles.container}>
-      <View style={[styles.verticallySpaced, styles.mt20]}>
-        <Text style={styles.label}>Correo Electrónico</Text>
-        <Input
-          variant="outline"
-          size="md"
-          isDisabled={false}
-          isInvalid={false}
-          isReadOnly={false}
-        >
-          <InputField
-            style={styles.input}
-            onChangeText={(text) => setEmail(text)}
-            value={email}
-            placeholder="Escribe tu correo electrónico"
-            autoCapitalize="none"
-            keyboardType="email-address"
+    <KeyboardAvoidingView 
+      style={styles.container} 
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+    >
+      <View style={styles.contentContainer}>
+        <View style={styles.logoContainer}>
+          <Image 
+            source={require('../../../../assets/LOGO.png')} 
+            style={styles.logo}
+            resizeMode="contain"
           />
-        </Input>
+        </View>
+
+        <VStack space="md" style={styles.formContainer}>
+          <Input
+            variant="outline"
+            size="lg"
+            isDisabled={false}
+            isInvalid={false}
+            isReadOnly={false}
+            style={styles.inputWrapper}
+          >
+            <InputField
+              onChangeText={(text) => setEmail(text)}
+              value={email}
+              placeholder="Correo electrónico"
+              autoCapitalize="none"
+              keyboardType="email-address"
+              style={styles.inputField}
+            />
+          </Input>
+          
+          <Input
+            variant="outline"
+            size="lg"
+            isDisabled={false}
+            isInvalid={false}
+            isReadOnly={false}
+            style={styles.inputWrapper}
+          >
+            <InputField
+              onChangeText={(text) => setPassword(text)}
+              value={password}
+              placeholder="Contraseña"
+              secureTextEntry={!showPassword}
+              autoCapitalize="none"
+              style={styles.inputField}
+            />
+            <InputSlot onPress={handleState} style={{ paddingRight: 10 }}>
+              <InputIcon as={showPassword ? EyeIcon : EyeOffIcon} />
+            </InputSlot>
+          </Input>
+
+          <Button 
+            disabled={loading} 
+            onPress={() => signInWithEmail()}
+            size="lg"
+            style={styles.loginButton}
+          >
+            <ButtonText>Iniciar sesión</ButtonText>
+          </Button>
+
+          <TouchableOpacity onPress={() => navigation.navigate("ResetPassword")} style={styles.forgotPasswordContainer}>
+            <Text style={styles.forgotPassword}>
+              ¿Olvidaste tu contraseña?
+            </Text>
+          </TouchableOpacity>
+        </VStack>
       </View>
-      <View style={styles.verticallySpaced}>
-        <Text style={styles.label}>Contraseña</Text>
-        <Input
-          variant="outline"
-          size="md"
-          isDisabled={false}
-          isInvalid={false}
-          isReadOnly={false}
-        >
-          <InputField
-            style={styles.input}
-            onChangeText={(text) => setPassword(text)}
-            value={password}
-            placeholder="Escribe tu contraseña"
-            secureTextEntry={true}
-            autoCapitalize="none"
-          />
-        </Input>
-      </View>
-      <View style={[styles.verticallySpaced, styles.mt20]}>
-        <Button disabled={loading} onPress={() => signInWithEmail()}>
-          <ButtonText>Iniciar Sesión</ButtonText>
-        </Button>
-      </View>
-      <View style={styles.verticallySpaced}>
+
+      <View style={styles.footerContainer}>
         <Button
           disabled={loading}
           onPress={() => navigation.navigate("Register")}
-          variant="solid"
-          size="md"
+          variant="outline"
+          size="lg"
           action="primary"
+          style={styles.createAccountButton}
         >
-          <ButtonText>Registrarse</ButtonText>
+          <ButtonText>Crear cuenta nueva</ButtonText>
         </Button>
       </View>
-      <TouchableOpacity onPress={() => navigation.navigate("ResetPassword")}>
-        <Text style={styles.forgotPassword}>
-          ¿Olvidaste tu contraseña?
-        </Text>
-      </TouchableOpacity>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    marginTop: 40,
-    padding: 12,
+    flex: 1,
+    backgroundColor: '#fff',
+    padding: 16,
   },
-  verticallySpaced: {
-    paddingTop: 4,
-    paddingBottom: 4,
-    alignSelf: "stretch",
+  contentContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%',
   },
-  mt20: {
-    marginTop: 20,
+  logoContainer: {
+    marginBottom: 40,
+    alignItems: 'center',
   },
-  label: {
-    marginBottom: 6,
-    fontSize: 16,
-    color: "#444",
+  logo: {
+    width: 150,
+    height: 150,
   },
-  input: {
-    height: 44,
-    borderColor: "#ccc",
-    color: "#000",
-    borderWidth: 1,
-    borderRadius: 4,
-    paddingHorizontal: 8,
-    backgroundColor: "#fff",
+  formContainer: {
+    width: '100%',
+  },
+  inputWrapper: {
+    borderRadius: 8,
+    backgroundColor: '#fff',
+    borderColor: '#ccc',
+  },
+  inputField: {
+    // optional
+  },
+  loginButton: {
+    borderRadius: 25,
+    marginTop: 10,
+  },
+  forgotPasswordContainer: {
+    alignItems: 'center',
+    marginTop: 15,
   },
   forgotPassword: {
-    marginTop: 20,
+    textAlign: 'center',
     color: "#F97316",
-    textAlign: "center",
-    fontSize: 16,
+    fontWeight: "bold",
   },
+  footerContainer: {
+    paddingBottom: 40,
+    width: '100%',
+  },
+  createAccountButton: {
+    width: '100%',
+    borderRadius: 25,
+  }
 });
