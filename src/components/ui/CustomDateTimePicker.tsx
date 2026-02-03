@@ -18,6 +18,7 @@ interface CustomDateTimePickerProps {
     initialDate?: Date;
     minDate?: Date;
     maxDate?: Date;
+    mode?: 'date' | 'time' | 'datetime';
 }
 
 const DAYS_OF_WEEK = ['Do', 'Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sa'];
@@ -32,7 +33,8 @@ export default function CustomDateTimePicker({
     onSelect, 
     initialDate = new Date(),
     minDate,
-    maxDate
+    maxDate,
+    mode = 'datetime'
 }: CustomDateTimePickerProps) {
     const [selectedDate, setSelectedDate] = useState(initialDate);
     const [currentMonth, setCurrentMonth] = useState(initialDate.getMonth());
@@ -151,8 +153,9 @@ export default function CustomDateTimePicker({
 
     const handleConfirm = () => {
         const finalDate = new Date(selectedDate);
-
-        if (selectedTime) {
+        
+        // Only process time if mode is NOT 'date'
+        if (mode !== 'date' && selectedTime) {
              const [timePart, modifier] = selectedTime.split(' ');
              if (timePart) {
                 let [hours, minutes] = timePart.split(':').map(Number);
@@ -228,8 +231,8 @@ export default function CustomDateTimePicker({
                     </View>
 
                     <View style={styles.bodyContainer}>
-                        {/* Left Side: Calendar */}
-                        <View style={styles.calendarContainer}>
+                        {/* Left Side: Calendar - Full Width if mode is 'date' */}
+                        <View style={[styles.calendarContainer, mode === 'date' && { flex: 1, borderRightWidth: 0 }]}>
                             <View style={styles.weekDays}>
                                 {DAYS_OF_WEEK.map(day => (
                                     <Text key={day} style={styles.weekDayText}>{day}</Text>
@@ -262,29 +265,31 @@ export default function CustomDateTimePicker({
                             </View>
                         </View>
 
-                        {/* Right Side: Times (Scrollable Vertical List) */}
-                        <View style={styles.timeContainer}>
-                            <ScrollView showsVerticalScrollIndicator={false}>
-                                {generateTimeSlots().map((time, index) => (
-                                    <TouchableOpacity
-                                        key={index}
-                                        style={[
-                                            styles.timeSlot,
-                                            selectedTime === time && styles.selectedTimeSlot
-                                        ]}
-                                        onPress={() => handleTimeSelect(time)}
-                                        activeOpacity={0.8}
-                                    >
-                                        <Text style={[
-                                            styles.timeText,
-                                            selectedTime === time && styles.selectedTimeText
-                                        ]}>
-                                            {time}
-                                        </Text>
-                                    </TouchableOpacity>
-                                ))}
-                            </ScrollView>
-                        </View>
+                        {/* Right Side: Times (Scrollable Vertical List) - Hidden in 'date' mode */}
+                        {mode !== 'date' && (
+                            <View style={styles.timeContainer}>
+                                <ScrollView showsVerticalScrollIndicator={false}>
+                                    {generateTimeSlots().map((time, index) => (
+                                        <TouchableOpacity
+                                            key={index}
+                                            style={[
+                                                styles.timeSlot,
+                                                selectedTime === time && styles.selectedTimeSlot
+                                            ]}
+                                            onPress={() => handleTimeSelect(time)}
+                                            activeOpacity={0.8}
+                                        >
+                                            <Text style={[
+                                                styles.timeText,
+                                                selectedTime === time && styles.selectedTimeText
+                                            ]}>
+                                                {time}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    ))}
+                                </ScrollView>
+                            </View>
+                        )}
                     </View>
 
                     {/* Footer: Actions */}

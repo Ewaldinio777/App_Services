@@ -15,6 +15,7 @@ interface OrderWithDetails extends Order {
   client?: Profile;
   provider?: Profile;
   hasReview?: boolean;
+  reviewDetails?: Review;
 }
 
 interface ReviewWithDetails extends Review {
@@ -58,12 +59,12 @@ const ClientOrdersView: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
 
       const { data: reviewsData, error: reviewsError } = await supabase
         .from('reviews')
-        .select('order_id')
+        .select('*')
         .eq('reviewer_id', session.user.id);
         
       if (reviewsError) throw reviewsError;
       
-      const reviewedOrderIds = new Set(reviewsData?.map(r => r.order_id));
+      const reviewsMap = new Map(reviewsData?.map(r => [r.order_id, r]));
 
       const ordersWithDetails = await Promise.all(
         (ordersData || []).map(async (order) => {
@@ -73,10 +74,13 @@ const ClientOrdersView: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
             .eq('id', order.provider_id)
             .single();
 
+          const review = reviewsMap.get(order.id);
+
           return {
             ...order,
             provider: providerData,
-            hasReview: reviewedOrderIds.has(order.id)
+            hasReview: !!review,
+            reviewDetails: review
           };
         })
       );
@@ -259,14 +263,16 @@ const ClientOrdersView: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
 
   const filteredOrders = filterOrders();
 
-  const getStatusLabel = (status: string, hasReview?: boolean) => {
-      if (status === 'pendiente' || status === 'pending') return 'Pendiente';
-      if (status === 'aceptado') return 'En Proceso'; 
-      if (status === 'en_proceso') return 'En Proceso';
-      if (status === 'completado' && !hasReview) return 'Pendiente de Confirmación';
-      if (status === 'completado' && hasReview) return 'Completado';
-      if (status === 'cancelado') return 'Cancelado';
-      return status;
+  const getStatusInfo = (status: string, review?: Review) => {
+      if (status === 'pendiente' || status === 'pending') return { text: 'Pendiente', color: '#666' };
+      if (status === 'aceptado' || status === 'en_proceso') return { text: 'En Proceso', color: '#F97316' };
+      if (status === 'completado' && !review) return { text: 'Pendiente de Confirmación', color: '#F97316' };
+      if (status === 'completado' && review) {
+          if (review.complaint) return { text: 'Queja Registrada', color: '#FF3B30' };
+          return { text: `Completado (★ ${review.rating})`, color: '#34C759' };
+      }
+      if (status === 'cancelado') return { text: 'Cancelado', color: '#FF3B30' };
+      return { text: status, color: '#333' };
   };
 
   if (loading) return <View style={styles.centerContainer}><ActivityIndicator size="large" color="#6B4EFF" /></View>;
@@ -283,10 +289,10 @@ const ClientOrdersView: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
       </View>
 
       <View style={styles.tabContainer}>
-        <TouchableOpacity style={[styles.tabButton, activeTab === 'activas' && styles.tabButtonActive]} onPress={() => setActiveTab('activas')}>
+        <TouchableOpacity activeOpacity={1} style={[styles.tabButton, activeTab === 'activas' && styles.tabButtonActive]} onPress={() => setActiveTab('activas')}>
           <Text style={[styles.tabText, activeTab === 'activas' && styles.tabTextActive]}>Activas</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={[styles.tabButton, activeTab === 'historial' && styles.tabButtonActive]} onPress={() => setActiveTab('historial')}>
+        <TouchableOpacity activeOpacity={1} style={[styles.tabButton, activeTab === 'historial' && styles.tabButtonActive]} onPress={() => setActiveTab('historial')}>
           <Text style={[styles.tabText, activeTab === 'historial' && styles.tabTextActive]}>Historial</Text>
         </TouchableOpacity>
       </View>
@@ -310,13 +316,22 @@ const ClientOrdersView: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
                       <View>
                           <Text style={styles.providerName}>{order.provider?.full_name || 'Proveedor'}</Text>
                           <Text style={styles.serviceType}>{order.title || order.service_type || "Servicio"}</Text>
+                          <Text style={styles.dateText}>
+                              {order.scheduled_date ? (
+                                  `${order.scheduled_date.split('T')[0].split('-').reverse().join('/')} • ${order.scheduled_time?.substring(0,5) || '00:00'}`
+                              ) : (
+                                  `${new Date(order.created_at).toLocaleDateString()} • ${new Date(order.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`
+                              )}
+                          </Text>
                       </View>
                   </View>
                 </View>
                 <View style={styles.divider} />
                 <View style={styles.cardBody}>
                     <Text style={styles.statusLabel}>Estado: </Text>
-                    <Text style={styles.statusValue}>{getStatusLabel(order.status, order.hasReview)}</Text>
+                    <Text style={[styles.statusValue, { color: getStatusInfo(order.status, order.reviewDetails).color }]}>
+                        {getStatusInfo(order.status, order.reviewDetails).text}
+                    </Text>
                 </View>
 
                 {order.status === 'completado' && !order.hasReview && (
@@ -360,9 +375,13 @@ const ClientOrdersView: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
         <View style={styles.modalOverlay}>
              <View style={styles.modalContent}>
                 <Text style={styles.modalTitle}>Reportar Problema</Text>
-                <TouchableOpacity style={styles.reasonSelect} onPress={() => setReportReason("El proveedor no realizó el servicio")}>
-                    <Text>{reportReason || "Seleccionar motivo..."}</Text>
-                </TouchableOpacity>
+                <TextInput 
+                    style={styles.reasonSelect} 
+                    placeholder="Título de la Queja" 
+                    placeholderTextColor="#999"
+                    value={reportReason} 
+                    onChangeText={setReportReason} 
+                />
                 <TextInput style={styles.commentInput} placeholder="Descripción..." multiline value={reportDescription} onChangeText={setReportDescription} />
                 <TouchableOpacity style={styles.modalButton} onPress={handleReportOrder} disabled={submitting}>
                      {submitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.modalButtonText}>Enviar Queja</Text>}
@@ -413,6 +432,29 @@ const ProviderOrdersView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     }, [session]);
 
     useFocusEffect(useCallback(() => { loadProviderOrders(); }, [loadProviderOrders]));
+
+    const handleChat = async (otherUserId: string) => {
+        if (!session?.user) return;
+        try {
+            // Check for existing chat
+             const { data: existingChats } = await supabase
+              .from("chats")
+              .select("id")
+              .or(
+                 `and(participant_1_id.eq.${session.user.id},participant_2_id.eq.${otherUserId}),and(participant_1_id.eq.${otherUserId},participant_2_id.eq.${session.user.id})`
+              )
+              .limit(1);
+
+            if (existingChats && existingChats.length > 0) {
+                navigation.navigate('ChatDetail', { chatId: existingChats[0].id, otherParticipantId: otherUserId });
+            } else {
+                 navigation.navigate('ChatDetail', { otherParticipantId: otherUserId });
+            }
+        } catch (error) {
+            console.error(error);
+             navigation.navigate('ChatDetail', { otherParticipantId: otherUserId });
+        }
+    };
 
     const updateStatus = async (orderId: string, newStatus: string) => {
         try {
@@ -500,13 +542,15 @@ const ProviderOrdersView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             </View>
 
             <View style={styles.tabContainer}>
-                <TouchableOpacity style={[styles.tabButton, activeTab === 'nuevas' && styles.tabButtonActive]} onPress={() => setActiveTab('nuevas')}>
+                <TouchableOpacity activeOpacity={1} style={[styles.tabButton, activeTab === 'nuevas' && styles.tabButtonActive]} onPress={() => setActiveTab('nuevas')}>
                     <Text style={[styles.tabText, activeTab === 'nuevas' && styles.tabTextActive]}>Nuevas ({orders.filter(o => (o.status as string) === 'pendiente' || (o.status as string) === 'pending').length})</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={[styles.tabButton, activeTab === 'proceso' && styles.tabButtonActive]} onPress={() => setActiveTab('proceso')}>
-                    <Text style={[styles.tabText, activeTab === 'proceso' && styles.tabTextActive]}>En Proceso</Text>
+                <TouchableOpacity activeOpacity={1} style={[styles.tabButton, activeTab === 'proceso' && styles.tabButtonActive]} onPress={() => setActiveTab('proceso')}>
+                    <Text style={[styles.tabText, activeTab === 'proceso' && styles.tabTextActive]}>
+                        En Proceso ({orders.filter(o => o.status === 'aceptado' || o.status === 'en_proceso').length})
+                    </Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={[styles.tabButton, activeTab === 'historial' && styles.tabButtonActive]} onPress={() => setActiveTab('historial')}>
+                <TouchableOpacity activeOpacity={1} style={[styles.tabButton, activeTab === 'historial' && styles.tabButtonActive]} onPress={() => setActiveTab('historial')}>
                     <Text style={[styles.tabText, activeTab === 'historial' && styles.tabTextActive]}>Historial</Text>
                 </TouchableOpacity>
             </View>
@@ -518,15 +562,23 @@ const ProviderOrdersView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                     filtered.map(order => (
                         <View key={order.id} style={styles.card}>
                             <View style={styles.cardHeader}>
-                                {order.client?.avatar_url ? (
-                                    <Image source={{ uri: order.client.avatar_url }} style={styles.avatar} />
-                                ) : (
-                                    <View style={[styles.avatar, { backgroundColor: '#ccc' }]} />
-                                )}
-                                <View>
-                                    <Text style={styles.providerName}>Cliente: {order.client?.full_name}</Text>
-                                    <Text style={styles.serviceType}>Servicio: {order.title}</Text>
-                                    <Text style={styles.dateText}>Fecha: {new Date(order.created_at).toLocaleDateString()}</Text>
+                                <View style={styles.providerInfo}>
+                                    {order.client?.avatar_url ? (
+                                        <Image source={{ uri: order.client.avatar_url }} style={[styles.avatar, { width: 60, height: 60, borderRadius: 30 }]} />
+                                    ) : (
+                                        <View style={[styles.avatar, { backgroundColor: '#ccc', width: 60, height: 60, borderRadius: 30 }]} />
+                                    )}
+                                    <View>
+                                        <Text style={styles.providerName}>{order.client?.full_name}</Text>
+                                        <Text style={styles.serviceType}>{order.title || order.service_type}</Text>
+                                        <Text style={styles.dateText}>
+                                            {order.scheduled_date ? (
+                                                `${order.scheduled_date.split('T')[0].split('-').reverse().join('/')} • ${order.scheduled_time?.substring(0,5) || '00:00'}`
+                                            ) : (
+                                                `${new Date(order.created_at).toLocaleDateString()} • ${new Date(order.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`
+                                            )}
+                                        </Text>
+                                    </View>
                                 </View>
                             </View>
                             
@@ -534,25 +586,25 @@ const ProviderOrdersView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                             
                             {activeTab === 'nuevas' && (
                                 <View style={styles.actionButtons}>
-                                    <TouchableOpacity style={[styles.actionButton, {backgroundColor: '#eee'}]} onPress={() => console.log("Chat")}>
-                                        <Text style={{color:'#333'}}>Chatear</Text>
+                                    <TouchableOpacity style={[styles.actionButton, {backgroundColor: '#F97316', flex: 1}]} onPress={() => order.client_id && handleChat(order.client_id)}>
+                                        <Text style={{color:'#fff', fontSize: 12, fontWeight: 'bold'}}>Chatear</Text>
                                     </TouchableOpacity>
-                                    <TouchableOpacity style={[styles.actionButton, {backgroundColor: '#FF3B30'}]} onPress={() => updateStatus(order.id, 'cancelado')}>
-                                        <Text style={{color:'#fff'}}>Declinar</Text>
+                                    <TouchableOpacity style={[styles.actionButton, {backgroundColor: '#FF3B30', flex: 1}]} onPress={() => updateStatus(order.id, 'cancelado')}>
+                                        <Text style={{color:'#fff', fontSize: 12, fontWeight: 'bold'}}>Declinar</Text>
                                     </TouchableOpacity>
-                                    <TouchableOpacity style={[styles.actionButton, {backgroundColor: '#34C759'}]} onPress={() => updateStatus(order.id, 'aceptado')}>
-                                        <Text style={{color:'#fff'}}>Aceptar</Text>
+                                    <TouchableOpacity style={[styles.actionButton, {backgroundColor: '#34C759', flex: 1}]} onPress={() => updateStatus(order.id, 'aceptado')}>
+                                        <Text style={{color:'#fff', fontSize: 12, fontWeight: 'bold'}}>Aceptar</Text>
                                     </TouchableOpacity>
                                 </View>
                             )}
                             
                             {activeTab === 'proceso' && (
                                 <View style={styles.actionButtons}>
-                                    <TouchableOpacity style={[styles.actionButton, {backgroundColor: '#eee', flex: 1}]} onPress={() => console.log("Chat")}>
-                                        <Text style={{color:'#333'}}>Chatear</Text>
+                                    <TouchableOpacity style={[styles.actionButton, {backgroundColor: '#F97316', flex: 1}]} onPress={() => order.client_id && handleChat(order.client_id)}>
+                                        <Text style={{color:'#fff', fontSize: 12, fontWeight: 'bold'}}>Chatear</Text>
                                     </TouchableOpacity>
-                                    <TouchableOpacity style={[styles.actionButton, {backgroundColor: '#F97316', flex: 1}]} onPress={() => updateStatus(order.id, 'completado')}>
-                                        <Text style={{color:'#fff'}}>Finalizar Servicio</Text>
+                                    <TouchableOpacity style={[styles.actionButton, {backgroundColor: '#34C759', flex: 1}]} onPress={() => updateStatus(order.id, 'completado')}>
+                                        <Text style={{color:'#fff', fontSize: 12, fontWeight: 'bold'}}>Finalizar Servicio</Text>
                                     </TouchableOpacity>
                                 </View>
                             )}
@@ -714,7 +766,7 @@ const ProviderPerformanceView: React.FC<{ onBack: () => void }> = ({ onBack }) =
         return {
             labels: displayLabels,
             datasets: [
-                { data: requestData, color: (opacity = 1) => `rgba(107, 78, 255, ${opacity})`, strokeWidth: 2 }, 
+                { data: requestData, color: (opacity = 1) => `rgba(249, 115, 22, ${opacity})`, strokeWidth: 2 }, 
                 { data: ratingData, color: (opacity = 1) => `rgba(52, 199, 89, ${opacity})`, strokeWidth: 2 }, 
                 { data: complaintData, color: (opacity = 1) => `rgba(255, 59, 48, ${opacity})`, strokeWidth: 2 } 
             ],
@@ -748,81 +800,87 @@ const ProviderPerformanceView: React.FC<{ onBack: () => void }> = ({ onBack }) =
             
             <View style={styles.statsRow}>
                  <View style={styles.statBox}>
-                    <Text style={styles.statLabel}>Calificaciones</Text>
-                    <Text style={styles.statValue}>{reviews.filter(r => !r.complaint).length}</Text>
+                    <Text style={styles.statLabel}>Calificaciones (Total)</Text>
+                    <Text style={[styles.statValue, {color: '#F97316'}]}>{reviews.filter(r => !r.complaint).length}</Text>
                 </View>
                  <View style={styles.statBox}>
-                    <Text style={styles.statLabel}>Quejas</Text>
-                    <Text style={styles.statValue}>{reviews.filter(r => r.complaint).length}</Text>
+                    <Text style={styles.statLabel}>Quejas (Total)</Text>
+                    <Text style={[styles.statValue, {color: '#FF3B30'}]}>{reviews.filter(r => r.complaint).length}</Text>
                 </View>
             </View>
 
             <View style={styles.tabContainer}>
-                <TouchableOpacity style={[styles.tabButton, activeTab === 'estadisticas' && styles.tabButtonActive]} onPress={() => setActiveTab('estadisticas')}>
+                <TouchableOpacity activeOpacity={1} style={[styles.tabButton, activeTab === 'estadisticas' && styles.tabButtonActive]} onPress={() => setActiveTab('estadisticas')}>
                     <Text style={[styles.tabText, activeTab === 'estadisticas' && styles.tabTextActive]}>Estadísticas</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={[styles.tabButton, activeTab === 'calificaciones' && styles.tabButtonActive]} onPress={() => setActiveTab('calificaciones')}>
+                <TouchableOpacity activeOpacity={1} style={[styles.tabButton, activeTab === 'calificaciones' && styles.tabButtonActive]} onPress={() => setActiveTab('calificaciones')}>
                     <Text style={[styles.tabText, activeTab === 'calificaciones' && styles.tabTextActive]}>Calificaciones</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={[styles.tabButton, activeTab === 'quejas' && styles.tabButtonActive]} onPress={() => setActiveTab('quejas')}>
+                <TouchableOpacity activeOpacity={1} style={[styles.tabButton, activeTab === 'quejas' && styles.tabButtonActive]} onPress={() => setActiveTab('quejas')}>
                     <Text style={[styles.tabText, activeTab === 'quejas' && styles.tabTextActive]}>Quejas</Text>
                 </TouchableOpacity>
             </View>
 
-            <ScrollView contentContainerStyle={styles.listContent}>
+            <ScrollView contentContainerStyle={[styles.listContent, activeTab === 'estadisticas' && { flex: 1, paddingBottom: 0 }]}>
                 {activeTab === 'estadisticas' ? (
-                     <View>
+                     <View style={{flex: 1}}>
                         <View style={{alignItems: 'center', marginBottom: 20}}>
                             <TouchableOpacity onPress={() => setShowDatePicker(true)} style={{
                                 flexDirection: 'row', 
                                 alignItems: 'center', 
-                                backgroundColor: '#F0EBFF', 
+                                backgroundColor: '#FFF7ED', 
                                 paddingHorizontal: 16, 
                                 paddingVertical: 8, 
                                 borderRadius: 20,
                                 marginBottom: 12
                             }}>
-                                <Ionicons name="calendar" size={20} color="#6B4EFF" style={{marginRight: 8}}/>
-                                <Text style={{color: '#6B4EFF', fontWeight: 'bold'}}>
+                                <Ionicons name="calendar" size={20} color="#F97316" style={{marginRight: 8}}/>
+                                <Text style={{color: '#F97316', fontWeight: 'bold'}}>
                                     Ver hasta: {referenceDate.toLocaleDateString()}
                                 </Text>
                              </TouchableOpacity>
 
                             <View style={{flexDirection: 'row', gap: 10}}>
-                                 <TouchableOpacity onPress={() => setChartFilter('day')} style={{backgroundColor: chartFilter === 'day' ? '#6B4EFF' : '#eee', padding: 8, borderRadius: 8}}>
+                                 <TouchableOpacity onPress={() => setChartFilter('day')} style={{backgroundColor: chartFilter === 'day' ? '#F97316' : '#eee', padding: 8, borderRadius: 8}}>
                                     <Text style={{color: chartFilter === 'day' ? '#fff' : '#000'}}>Día</Text>
                                  </TouchableOpacity>
-                                 <TouchableOpacity onPress={() => setChartFilter('month')} style={{backgroundColor: chartFilter === 'month' ? '#6B4EFF' : '#eee', padding: 8, borderRadius: 8}}>
+                                 <TouchableOpacity onPress={() => setChartFilter('month')} style={{backgroundColor: chartFilter === 'month' ? '#F97316' : '#eee', padding: 8, borderRadius: 8}}>
                                     <Text style={{color: chartFilter === 'month' ? '#fff' : '#000'}}>Mes</Text>
                                  </TouchableOpacity>
-                                 <TouchableOpacity onPress={() => setChartFilter('year')} style={{backgroundColor: chartFilter === 'year' ? '#6B4EFF' : '#eee', padding: 8, borderRadius: 8}}>
+                                 <TouchableOpacity onPress={() => setChartFilter('year')} style={{backgroundColor: chartFilter === 'year' ? '#F97316' : '#eee', padding: 8, borderRadius: 8}}>
                                     <Text style={{color: chartFilter === 'year' ? '#fff' : '#000'}}>Año</Text>
                                  </TouchableOpacity>
                             </View>
                         </View>
-                        <LineChart
-                            data={getChartData()}
-                            width={Dimensions.get("window").width - 32} 
-                            height={220}
-                            chartConfig={chartConfig}
-                            bezier
-                            style={{
-                                marginVertical: 8,
-                                borderRadius: 16
-                            }}
-                        />
+                        
+                        <View style={{ alignItems: 'center' }}>
+                            <LineChart
+                                data={getChartData()}
+                                width={Dimensions.get("window").width - 32} 
+                                height={220}
+                                chartConfig={chartConfig}
+                                bezier
+                                style={{
+                                    marginVertical: 8,
+                                    borderRadius: 16
+                                }}
+                            />
+                        </View>
+                        
                          <Text style={{textAlign:'center', color: '#666', marginTop: 10}}>
                             Solicitudes, Calificaciones y Quejas (Últimos 6 periodos)
                         </Text>
                      </View>
-                ) : filtered.length === 0 ? <Text style={styles.emptyText}>No hay registros.</Text> : filtered.map(item => (
+                ) : (
+                    filtered.length === 0 ? <Text style={styles.emptyText}>No hay registros.</Text> : filtered.map(item => (
                     <View key={item.id} style={styles.card}>
                         <Text style={{fontWeight:'bold', fontSize: 16}}>{activeTab === 'calificaciones' ? `${item.rating}.0 ★` : 'Queja'}</Text>
                         <Text style={{color: '#666', marginTop: 4}}>{item.reviewer?.full_name || 'Usuario'}</Text>
                         <Text style={{fontStyle:'italic', marginTop: 8}}>"{item.comment || item.complaint}"</Text>
                         <Text style={{fontSize: 12, color:'#999', marginTop: 8}}>{item.order?.title || 'Servicio'}</Text>
                     </View>
-                ))}
+                )))
+                }
             </ScrollView>
             
             <CustomDateTimePicker 
@@ -837,6 +895,7 @@ const ProviderPerformanceView: React.FC<{ onBack: () => void }> = ({ onBack }) =
                 initialDate={referenceDate}
                 minDate={minDate}
                 maxDate={new Date()}
+                mode="date"
             />
         </View>
     );
@@ -945,30 +1004,30 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 20, fontWeight: 'bold', color: '#000' },
   
   // Tab Styles
-  tabContainer: { flexDirection: 'row', backgroundColor: '#fff', paddingVertical: 10, paddingHorizontal: 20, borderBottomWidth: 1, borderBottomColor: '#eee' },
-  tabButton: { marginRight: 20, paddingBottom: 8 },
-  tabButtonActive: { borderBottomWidth: 2, borderBottomColor: '#6B4EFF' },
+  tabContainer: { flexDirection: 'row', backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#eee' },
+  tabButton: { flex: 1, paddingVertical: 14, alignItems: 'center', justifyContent: 'center' },
+  tabButtonActive: { backgroundColor: '#F97316' },
   tabText: { fontSize: 16, color: '#666' },
-  tabTextActive: { color: '#6B4EFF', fontWeight: 'bold' },
+  tabTextActive: { color: '#fff', fontWeight: 'bold' },
   
   listContent: { padding: 16, backgroundColor: '#f5f5f5', minHeight: '100%' },
   emptyContainer: { alignItems: 'center', marginTop: 60 },
   emptyText: { marginTop: 16, color: '#999', fontSize: 16, textAlign: 'center' },
   
-  card: { backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 16, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 },
+  card: { backgroundColor: '#fff', borderRadius: 12, padding: 12, marginBottom: 12, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 },
   cardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   providerInfo: { flexDirection: 'row', alignItems: 'center' },
-  avatar: { width: 40, height: 40, borderRadius: 20, marginRight: 12 },
+  avatar: { width: 40, height: 40, borderRadius: 20, marginRight: 10 },
   providerName: { fontSize: 16, fontWeight: 'bold', color: '#333' },
   serviceType: { fontSize: 14, color: '#666' },
   dateText: { fontSize: 12, color: '#999', marginTop: 4 },
   
-  divider: { height: 1, backgroundColor: '#f0f0f0', marginVertical: 12 },
-  cardBody: { marginBottom: 12 },
+  divider: { height: 1, backgroundColor: '#f0f0f0', marginVertical: 8 },
+  cardBody: { marginBottom: 2 },
   statusLabel: { fontSize: 14, color: '#666' },
   statusValue: { fontSize: 14, fontWeight: 'bold', color: '#333' },
   
-  actionButtons: { flexDirection: 'row', gap: 10, marginTop: 10 },
+  actionButtons: { flexDirection: 'row', gap: 10, marginTop: 8 },
   actionButton: { padding: 10, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   confirmButton: { backgroundColor: '#000', paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, flex: 1, alignItems: 'center' },
   confirmButtonText: { color: '#fff', fontSize: 12, fontWeight: 'bold' },
