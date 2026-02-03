@@ -109,7 +109,7 @@ export default function ScheduleServiceScreen() {
         setSubmitting(true);
         // Create Order
         
-        const { error } = await supabase.from("orders").insert({
+        const { data: newOrder, error } = await supabase.from("orders").insert({
             client_id: session?.user.id,
             provider_id: provider.id, 
             // service_id: service?.id, // Removed as it doesn't exist in schema
@@ -121,7 +121,9 @@ export default function ScheduleServiceScreen() {
             scheduled_time: selectedDate.toTimeString().split(' ')[0],
             delivery_address: address,
             service_type: requestTitle // Using title as service_type for now
-        });
+        })
+        .select()
+        .single();
 
         if (error) throw error;
 
@@ -136,7 +138,7 @@ export default function ScheduleServiceScreen() {
               title: "¡Nueva Solicitud de Servicio!",
               body: `${clientName} solicita un servicio de ${requestTitle}. Responde antes de que expire.`,
               type: 'order',
-              related_id: provider.id, // Or orderId if we returned it, but let's point to general orders or keep generic
+              related_id: newOrder.id, 
               is_read: false
         });
         // --------------------------

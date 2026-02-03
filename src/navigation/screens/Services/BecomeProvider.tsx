@@ -10,10 +10,12 @@ import {
   ActivityIndicator,
   Modal,
   FlatList,
+  Image,
 } from "react-native";
 import { useAuth } from "../../../context/AuthContext";
 import { supabase } from "@/src/lib/supabase-client";
 import { useNavigation } from "@react-navigation/native";
+import { Ionicons } from "@react-native-vector-icons/ionicons";
 
 const AVAILABLE_SERVICES = [
   "Plomería",
@@ -30,6 +32,7 @@ const BecomeProvider: React.FC = () => {
   const navigation = useNavigation();
   const [submitting, setSubmitting] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
+  const [profile, setProfile] = useState<{ avatar_url?: string } | null>(null);
 
   // Split fields state
   const [idType, setIdType] = useState("V");
@@ -44,6 +47,17 @@ const BecomeProvider: React.FC = () => {
     experience: "",
     specialization: "",
   });
+
+  React.useEffect(() => {
+    if (session?.user) {
+      supabase
+        .from('profiles')
+        .select('avatar_url')
+        .eq('id', session.user.id)
+        .single()
+        .then(({ data }) => setProfile(data));
+    }
+  }, [session]);
 
   const toggleService = (service: string) => {
     const current = formData.specialization
@@ -134,6 +148,19 @@ const BecomeProvider: React.FC = () => {
   return (
     <ScrollView style={styles.container}>
       <View style={styles.formContainer}>
+        <View style={styles.avatarContainer}>
+          {profile?.avatar_url ? (
+            <Image 
+              source={{ uri: profile.avatar_url }} 
+              style={styles.avatar} 
+            />
+          ) : (
+            <View style={styles.avatarPlaceholder}>
+             <Ionicons name="person" size={50} color="#F97316" />
+            </View>
+          )}
+        </View>
+
         <Text style={styles.title}>¡Hazte proveedor de servicio!</Text>
         <Text style={styles.subtitle}>
           Completa tus datos profesionales para empezar a ofrecer servicios.
@@ -356,6 +383,23 @@ const styles = StyleSheet.create({
   },
   formContainer: {
     padding: 20,
+  },
+  avatarContainer: {
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  avatar: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+  },
+  avatarPlaceholder: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: "#FCE7D6",
+    justifyContent: "center",
+    alignItems: "center",
   },
   title: {
     fontSize: 22,

@@ -6,6 +6,7 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   Alert,
+  Image,
 } from "react-native";
 import { Text } from "@/src/components/ui/text";
 import { useAuth } from "../../../context/AuthContext";
@@ -176,7 +177,14 @@ const ProviderDetail: React.FC = () => {
     <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 40 }}>
       <View style={styles.header}>
         <View style={styles.avatarContainer}>
-          <Ionicons name="person-circle" size={80} color="#F97316" />
+          {profile.avatar_url ? (
+            <Image 
+              source={{ uri: profile.avatar_url }} 
+              style={styles.avatar}
+            />
+          ) : (
+            <Ionicons name="person-circle" size={80} color="#F97316" />
+          )}
         </View>
         <Text style={styles.providerName}>{profile.full_name || "Proveedor"}</Text>
         <Text style={styles.specialization}>
@@ -290,8 +298,12 @@ const styles = StyleSheet.create({
     borderBottomColor: "#e0e0e0",
   },
   avatarContainer: {
-    marginBottom: 10,
+    marginBottom: 10,    alignItems: 'center',
   },
+  avatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,  },
   providerName: {
     fontSize: 24,
     fontWeight: "bold",

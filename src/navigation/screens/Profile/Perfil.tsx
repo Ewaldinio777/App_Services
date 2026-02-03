@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from "react";
-import { View, ScrollView, StyleSheet, TouchableOpacity, TextInput, Alert, ActivityIndicator } from "react-native";
+import { View, ScrollView, StyleSheet, TouchableOpacity, TextInput, Alert, ActivityIndicator, Image } from "react-native";
 import { Text } from "@/src/components/ui/text";
 import { useAuth } from "../../../context/AuthContext";
 import { supabase } from "@/src/lib/supabase-client";
 import { Profile, Provider } from "@/src/types/database.types";
 import { Ionicons } from "@react-native-vector-icons/ionicons";
+import * as ImagePicker from 'expo-image-picker';
 
 const Perfil: React.FC = () => {
   const { session, logout } = useAuth();
@@ -17,6 +18,78 @@ const Perfil: React.FC = () => {
   // Provider edit fields
   const [description, setDescription] = useState("");
   const [experience, setExperience] = useState("");
+
+  const pickImage = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      
+      if (status !== 'granted') {
+        Alert.alert('Permiso denegado', 'Necesitamos acceso a tu galería para cambiar tu foto de perfil.');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.5,
+      });
+
+      if (!result.canceled) {
+        uploadImage(result.assets[0].uri);
+      }
+    } catch (error: any) {
+      console.log('Error selecting image:', error);
+      Alert.alert('Error', error.message || 'No se pudo seleccionar la imagen');
+    }
+  };
+
+  const uploadImage = async (uri: string) => {
+    try {
+      setLoading(true);
+      if (!session?.user) throw new Error('No user on the session!');
+
+      const response = await fetch(uri);
+      const blob = await response.blob();
+      const arrayBuffer = await new Response(blob).arrayBuffer();
+      
+      const fileExt = uri.split('.').pop();
+      const fileName = `${session.user.id}-${Date.now()}.${fileExt}`;
+      const filePath = `${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, arrayBuffer, {
+          contentType: blob.type,
+          upsert: true
+        });
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      const { data } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+
+      const publicUrl = data.publicUrl;
+
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: publicUrl })
+        .eq('id', session.user.id);
+
+      if (updateError) throw updateError;
+      
+      setProfile(prev => prev ? { ...prev, avatar_url: publicUrl } : null);
+      Alert.alert('Éxito', 'Foto de perfil actualizada');
+    } catch (error: any) {
+      console.error(error);
+      Alert.alert('Error', error.message || 'Error al subir la imagen');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (session?.user) {
@@ -119,31 +192,52 @@ const Perfil: React.FC = () => {
     <ScrollView style={styles.container}>
       <View style={styles.header}>
         <View style={styles.avatarContainer}>
-          <Ionicons name="person-circle" size={100} color="#F97316" />
+          <TouchableOpacity onPress={pickImage} disabled={loading}>
+             {profile?.avatar_url ? (
+                <Image source={{ uri: profile.avatar_url }} style={styles.avatar} />
+             ) : (
+                <Ionicons name="person-circle" size={100} color="#F97316" />
+             )}
+             <View style={styles.editIconContainer}>
+                <Ionicons name="camera" size={20} color="#FFF" />
+             </View>
+          </TouchableOpacity>
         </View>
-        <Text style={styles.email}>{session.user.email}</Text>
+        {profile?.is_provider ? (
+          <View style={{ alignItems: 'center' }}>
+            <Text style={{ fontSize: 24, fontWeight: 'bold', color: '#000', marginBottom: 4 }}>
+                {profile?.full_name || "Usuario"}
+            </Text>
+            {providerData?.specialization && providerData.specialization.length > 0 && (
+               <Text style={{ fontSize: 16, color: '#666', marginBottom: 4 }}>
+                 {providerData.specialization[0]}
+               </Text>
+            )}
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Ionicons name="star" size={16} color="#FFD700" />
+              <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#000', marginLeft: 4 }}>
+                 {providerData?.rating ? providerData.rating.toFixed(1) : "0.0"}
+              </Text>
+              <Text style={{ fontSize: 14, color: '#666', marginLeft: 4 }}>
+                 /5 ({providerData?.total_reviews || 0} reseñas)
+              </Text>
+            </View>
+          </View>
+        ) : (
+          <Text style={{ fontSize: 24, fontWeight: 'bold', color: '#000', marginBottom: 4 }}>
+            {profile?.full_name || "Usuario"}
+          </Text>
+        )}
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Información Personal</Text>
-        
-
-        {/* Informacion de Proveedor */}
-        {profile?.is_provider && (
+        {profile?.is_provider ? (
             <>
-                <Text style={[styles.sectionTitle, { marginTop: 20 }]}>Perfil de Proveedor</Text>
-                
+                <Text style={styles.sectionTitle}>Perfil de Proveedor</Text>
+
                 <View style={styles.fieldContainer}>
-                  <Text style={styles.label}>Calificación Promedio</Text>
-                  <View style={styles.ratingContainer}>
-                    <Ionicons name="star" size={20} color="#FFD700" />
-                    <Text style={styles.ratingValue}>
-                      {providerData?.rating ? providerData.rating.toFixed(1) : "N/A"}
-                    </Text>
-                    <Text style={styles.ratingCount}>
-                      ({providerData?.total_reviews || 0} reseñas)
-                    </Text>
-                  </View>
+                  <Text style={styles.label}>Email</Text>
+                  <Text style={styles.value}>{session.user.email}</Text>
                 </View>
 
                 <View style={styles.fieldContainer}>
@@ -182,26 +276,21 @@ const Perfil: React.FC = () => {
                     )}
                 </View>
             </>
+        ) : (
+            <>
+                <Text style={styles.sectionTitle}>Información Personal</Text>
+
+                <View style={styles.fieldContainer}>
+                  <Text style={styles.label}>Nombre Completo</Text>
+                  <Text style={styles.value}>{profile?.full_name || "No especificado"}</Text>
+                </View>
+
+                <View style={styles.fieldContainer}>
+                  <Text style={styles.label}>Email</Text>
+                  <Text style={styles.value}>{session.user.email}</Text>
+                </View>
+            </>
         )}
-
-        <View style={styles.fieldContainer}>
-          <Text style={styles.label}>Nombre Completo</Text>
-          {editing ? (
-            <TextInput
-              style={styles.input}
-              value={fullName}
-              onChangeText={setFullName}
-              placeholder="Ingresa tu nombre completo"
-            />
-          ) : (
-            <Text style={styles.value}>{profile?.full_name || "No especificado"}</Text>
-          )}
-        </View>
-
-        <View style={styles.fieldContainer}>
-          <Text style={styles.label}>Email</Text>
-          <Text style={styles.value}>{session.user.email}</Text>
-        </View>
 
         <View style={styles.fieldContainer}>
           <Text style={styles.label}>Tipo de Cuenta</Text>
@@ -224,7 +313,8 @@ const Perfil: React.FC = () => {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Acciones</Text>
         
-        {editing ? (
+        {profile?.is_provider && (
+        editing ? (
           <View style={styles.buttonGroup}>
             <TouchableOpacity
               style={[styles.button, styles.saveButton]}
@@ -254,7 +344,7 @@ const Perfil: React.FC = () => {
             <Ionicons name="create" size={20} color="#fff" />
             <Text style={styles.buttonText}>Editar Perfil</Text>
           </TouchableOpacity>
-        )}
+        ))}
 
         <TouchableOpacity
           style={[styles.button, styles.logoutButton]}
@@ -300,6 +390,22 @@ const styles = StyleSheet.create({
   },
   avatarContainer: {
     marginBottom: 15,
+    position: 'relative',
+  },
+  avatar: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+  },
+  editIconContainer: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    backgroundColor: '#F97316',
+    borderRadius: 15,
+    padding: 6,
+    borderWidth: 2,
+    borderColor: '#fff',
   },
   email: {
     fontSize: 16,
@@ -316,13 +422,15 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 15,
+    color: '#000',
   },
   fieldContainer: {
     marginBottom: 15,
   },
   label: {
-    fontSize: 14,
-    color: '#666',
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: '#333',
     marginBottom: 5,
   },
   value: {

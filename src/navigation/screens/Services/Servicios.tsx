@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState, useCallback } from "react";
-import { View, ScrollView, StyleSheet, TouchableOpacity, TextInput, Modal, FlatList, KeyboardAvoidingView, Platform } from "react-native";
+import { View, ScrollView, StyleSheet, TouchableOpacity, TextInput, Modal, FlatList, KeyboardAvoidingView, Platform, Image } from "react-native";
 import { useAuth } from "../../../context/AuthContext";
 import { Text } from "@/src/components/ui/text";
 import { Ionicons } from '@react-native-vector-icons/ionicons';
@@ -63,9 +63,30 @@ const categories = [
           }
         )
         .subscribe();
+        
+      // Subscribe to profile changes (real-time avatar updates)
+      const profilesSubscription = supabase
+        .channel('public:profiles_services')
+        .on(
+          'postgres_changes',
+          { event: 'UPDATE', schema: 'public', table: 'profiles' },
+          (payload) => {
+             const updatedProfile = payload.new as Profile;
+             setProviders(prevProviders => prevProviders.map(p => {
+                // If the updated profile belongs to one of the providers in the list
+                if (p.profile?.id === updatedProfile.id) {
+                    // Update the profile data nested in the provider object
+                    return { ...p, profile: { ...p.profile, ...updatedProfile } };
+                }
+                return p;
+             }));
+          }
+        )
+        .subscribe();
 
       return () => {
         subscription.unsubscribe();
+        profilesSubscription.unsubscribe();
       };
     }
   }, [session]);
@@ -345,10 +366,27 @@ const categories = [
               onPress={() => navigation.navigate("ProviderDetail", { providerId: provider.id })}
             >
               <View style={styles.providerInfo}>
-                <Ionicons name="person-circle" size={46} color="#F97316" />
+                {(() => {
+                    const avatarUrl = Array.isArray(provider.profile) 
+                        ? provider.profile[0]?.avatar_url 
+                        : provider.profile?.avatar_url;
+                    
+                    if (avatarUrl) {
+                        return (
+                            <Image 
+                              source={{ uri: avatarUrl }} 
+                              style={styles.avatar} 
+                            />
+                        );
+                    }
+                    return <Ionicons name="person-circle" size={46} color="#F97316" />;
+                })()}
+                
                 <View style={styles.providerDetails}>
                   <Text style={styles.providerName}>
-                    {provider.profile?.full_name || "Proveedor"}
+                    {Array.isArray(provider.profile) 
+                        ? provider.profile[0]?.full_name || "Proveedor" 
+                        : provider.profile?.full_name || "Proveedor"}
                   </Text>
                   <Text style={styles.providerSpecialization}>
                     {Array.isArray(provider.specialization)
@@ -547,6 +585,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 4,
+  },
+  avatar: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: '#f0f0f0',
   },
   providerInfo: {
     flexDirection: 'row',

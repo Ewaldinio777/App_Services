@@ -24,6 +24,14 @@
       "predictiveBackGestureEnabled": false,
       "package": "com.anonymous.expousermanagement"
     },
+    "plugins": [
+        [
+            "expo-image-picker",
+            {
+                "photosPermission": "The app accesses your photos to let you set your profile picture."
+            }
+        ]
+    ],
     "web": {
       "favicon": "./assets/favicon.png"
     }

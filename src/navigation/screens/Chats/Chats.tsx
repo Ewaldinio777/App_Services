@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
-import { View, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, RefreshControl, TextInput } from "react-native";
+import { View, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, RefreshControl, TextInput, Image } from "react-native";
 import { Text } from "@/src/components/ui/text";
 import { useAuth } from "../../../context/AuthContext";
 import { supabase } from "@/src/lib/supabase-client";
@@ -137,18 +137,20 @@ const Chats: React.FC = () => {
                 : chat.participant_1_id
               : undefined;
 
+          // Fetch profile directly
           const { data: profileData } = otherParticipantId
             ? await supabase.from('profiles').select('*').eq('id', otherParticipantId).single()
             : { data: null };
 
           let providerData: Provider | null = null;
           if (otherParticipantId) {
-            const { data: providerById } = await supabase.from('providers').select('*').eq('id', otherParticipantId).maybeSingle();
-            providerData = providerById || null;
-            if (!providerData) {
-              const { data: providerByProfile } = await supabase.from('providers').select('*').eq('profile_id', otherParticipantId).maybeSingle();
-              providerData = providerByProfile || null;
-            }
+             // ... existing provider fetch logic ...
+             const { data: providerById } = await supabase.from('providers').select('*').eq('id', otherParticipantId).maybeSingle();
+             providerData = providerById || null;
+             if (!providerData) {
+                const { data: providerByProfile } = await supabase.from('providers').select('*').eq('profile_id', otherParticipantId).maybeSingle();
+                providerData = providerByProfile || null;
+             }
           }
 
           const { data: lastMessageData } = await supabase
@@ -246,6 +248,27 @@ const Chats: React.FC = () => {
   // SUSCRIPCIÓN EN TIEMPO REAL
   useEffect(() => {
     if (!session?.user) return;
+
+    // Suscripción a cambios en perfiles (para actualizar avatares en tiempo real)
+    const profilesSubscription = supabase
+      .channel('public:profiles_chats')
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'profiles' },
+        (payload) => {
+           const updatedProfile = payload.new as Profile;
+           setChats(prevChats => prevChats.map(chat => {
+              if (chat.other_participant?.id === updatedProfile.id) {
+                  return { 
+                      ...chat, 
+                      other_participant: { ...chat.other_participant, ...updatedProfile } 
+                  };
+              }
+              return chat;
+           }));
+        }
+      )
+      .subscribe();
 
     // Canal para nuevos mensajes en los chats existentes
     const messagesSubscription = supabase
@@ -353,7 +376,9 @@ const Chats: React.FC = () => {
     // Limpiar suscripciones al desmontar el componente
     return () => {
       supabase.removeChannel(messagesSubscription);
+      supabase.removeChannel(messagesUpdateSubscription);
       supabase.removeChannel(chatsSubscription);
+      profilesSubscription.unsubscribe();
     };
   }, [session?.user]);
 
@@ -539,9 +564,13 @@ const Chats: React.FC = () => {
                 }}
               >
                 <View style={styles.avatarWrapper}>
-                   <View style={styles.avatarCircle}>
-                      <Text style={styles.avatarInitials}>{otherUserInitial}</Text>
-                   </View>
+                   {chat.other_participant?.avatar_url ? (
+                       <Image source={{ uri: chat.other_participant.avatar_url }} style={styles.avatarImage} />
+                   ) : (
+                       <View style={styles.avatarCircle}>
+                          <Text style={styles.avatarInitials}>{otherUserInitial}</Text>
+                       </View>
+                   )}
                 </View>
 
                 <View style={styles.chatContent}>
@@ -751,6 +780,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#FCE7D6',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  avatarImage: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#f0f0f0',
   },
   avatarInitials: {
     fontSize: 20,

@@ -470,17 +470,24 @@ const ChatDetail: React.FC = () => {
     <View style={styles.safeArea}>
       <KeyboardAvoidingView
         style={styles.container}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 100}
       >
         <View style={styles.header}>
             
-            <View style={styles.headerUserInfo}>
-                <Ionicons name="person-circle" size={40} color="#F97316" />
-                <View style={{ marginLeft: 10, flex: 1, marginRight: 8 }}>
-                    <Text style={styles.headerTitle} numberOfLines={1}>{otherParticipant?.full_name || "Chat"}</Text>
-                </View>
+        <View style={styles.headerUserInfo}>
+            {otherParticipant?.avatar_url ? (
+              <Image 
+                source={{ uri: otherParticipant.avatar_url }} 
+                style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#f0f0f0' }} 
+              />
+            ) : (
+              <Ionicons name="person-circle" size={40} color="#F97316" />
+            )}
+            <View style={{ marginLeft: 10, flex: 1, marginRight: 8 }}>
+                <Text style={styles.headerTitle} numberOfLines={1}>{otherParticipant?.full_name || "Chat"}</Text>
             </View>
+        </View>
 
             <View style={styles.headerActions}>
                 {otherParticipant?.is_provider && (
@@ -768,7 +775,7 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: 8,
     paddingTop: 10,
     backgroundColor: '#fff',
     borderTopWidth: 1,

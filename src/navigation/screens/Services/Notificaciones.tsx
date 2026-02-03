@@ -18,8 +18,17 @@ import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "@/src/navigation/types";
 
+const parseSupabaseDate = (dateString: string) => {
+    // If it doesn't have a timezone indicator (Z or +...), assume UTC and append Z
+    // Supabase 'timestamp without time zone' is usually stored as UTC but returned without Z
+    if (!dateString.endsWith("Z") && !dateString.includes("+")) {
+       return new Date(dateString + "Z");
+    }
+    return new Date(dateString);
+};
+
 const formatRelativeTime = (dateString: string) => {
-  const date = new Date(dateString);
+  const date = parseSupabaseDate(dateString);
   const now = new Date();
   const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
 
@@ -34,9 +43,92 @@ const formatRelativeTime = (dateString: string) => {
 };
 
 const NotificationItem = ({ item, onPress, onMorePress }: { item: Notification; onPress: (n: Notification) => void; onMorePress: (n: Notification) => void }) => {
-    // Placeholder logic for avatar/thumbnail until DB is updated
-    // In a real scenario, we would use item.metadata?.avatar_url or similar
-    const showThumbnail = false; 
+    const { session } = useAuth();
+    const [relatedProfile, setRelatedProfile] = useState<{ avatar_url?: string } | null>(null);
+
+    useEffect(() => {
+        const fetchRelatedProfile = async () => {
+             if (!item.related_id || !session?.user) return;
+             
+             let profileIdToFetch: string | null = null;
+             
+             try {
+                // Ensure we handle case-insensitive title and body checks
+                const titleLower = (item.title || "").toLowerCase();
+                const bodyLower = (item.body || "").toLowerCase();
+                
+                const isComplaint = item.type === 'complaint' || titleLower.includes('queja') || bodyLower.includes('queja');
+
+                if (isComplaint) {
+                    // Do nothing, leave profileIdToFetch null so it shows the bell icon
+                } else if (item.type === 'chat' || item.type === 'message' || titleLower.includes('mensaje') || bodyLower.includes('mensaje')) {
+                     // For chat, we need to find the OTHER participant
+                     const { data: chatData } = await supabase.from('chats').select('*').eq('id', item.related_id).maybeSingle();
+                     if (chatData) {
+                         profileIdToFetch = chatData.participant_1_id === session.user.id 
+                            ? chatData.participant_2_id 
+                            : chatData.participant_1_id;
+                     }
+                } else if (
+                    item.type === 'order' || 
+                    item.type === 'review' ||
+                    titleLower.includes('solicit') || bodyLower.includes('solicit') ||
+                    titleLower.includes('orden') || bodyLower.includes('orden') ||
+                    titleLower.includes('confirm') || bodyLower.includes('confirm') ||
+                    titleLower.includes('calific') || bodyLower.includes('calific') ||
+                    titleLower.includes('reseña') || bodyLower.includes('reseña') ||
+                    titleLower.includes('servicio') || bodyLower.includes('servicio')
+                ) {
+                     // Try to fetch as order first
+                     const { data: orderData } = await supabase.from('orders').select('*').eq('id', item.related_id).maybeSingle();
+                     
+                     if (orderData) {
+                         if (orderData.provider_id === session.user.id) {
+                              profileIdToFetch = orderData.client_id;
+                         } else {
+                              profileIdToFetch = orderData.provider_id;
+                         }
+                     } else {
+                         // Fallback: check if it matches a review
+                         const { data: reviewData } = await supabase.from('reviews').select('reviewer_id').eq('id', item.related_id).maybeSingle();
+                         if (reviewData) {
+                             profileIdToFetch = reviewData.reviewer_id;
+                         } else if (item.related_id === session.user.id && (item.type === 'order' || titleLower.includes('solicit'))) {
+                              // Heuristic for broken notifications where related_id was wrongly set to provider_id (me) instead of order_id
+                              // Try to find a pending order created very close to this notification
+                              const notifTime = new Date(item.created_at).getTime();
+                              // Check within a 2 minute window (1 min before, 1 min after) to be safe
+                              const lowerBound = new Date(notifTime - 60000).toISOString();
+                              const upperBound = new Date(notifTime + 60000).toISOString();
+
+                              const { data: heuristicOrder } = await supabase
+                                    .from('orders')
+                                    .select('client_id')
+                                    .eq('provider_id', session.user.id)
+                                    .gte('created_at', lowerBound)
+                                    .lte('created_at', upperBound)
+                                    .limit(1)
+                                    .maybeSingle();
+                              
+                              if (heuristicOrder) {
+                                  profileIdToFetch = heuristicOrder.client_id;
+                              }
+                         }
+                     }
+                }
+                
+                if (profileIdToFetch) {
+                    const { data: profile } = await supabase.from('profiles').select('avatar_url').eq('id', profileIdToFetch).single();
+                    if (profile) setRelatedProfile(profile);
+                }
+             } catch (e) {
+                 // Silent fail for avatar
+                 console.log("Error fetching avatar for notif", e);
+             }
+        };
+        
+        fetchRelatedProfile();
+    }, [item, session]);
 
     return (
         <TouchableOpacity
@@ -46,9 +138,13 @@ const NotificationItem = ({ item, onPress, onMorePress }: { item: Notification; 
         >
             {/* Left: Avatar/Icon */}
             <View style={styles.avatarContainer}>
-                <View style={styles.avatarPlaceholder}>
-                     <Ionicons name="notifications" size={20} color="#fff" />
-                </View>
+                {relatedProfile?.avatar_url ? (
+                    <Image source={{ uri: relatedProfile.avatar_url }} style={styles.avatarImage} />
+                ) : (
+                    <View style={styles.avatarPlaceholder}>
+                         <Ionicons name="notifications" size={20} color="#fff" />
+                    </View>
+                )}
                 {!item.is_read && <View style={styles.unreadDot} />}
             </View>
 
@@ -60,14 +156,8 @@ const NotificationItem = ({ item, onPress, onMorePress }: { item: Notification; 
                  <Text style={styles.timeText}>{formatRelativeTime(item.created_at)}</Text>
             </View>
 
-            {/* Right: Thumbnail & Menu */}
+            {/* Right: Menu */}
             <View style={styles.rightContainer}>
-                {showThumbnail ? (
-                    <View style={styles.thumbnailPlaceholder} />
-                ) : (
-                     <View style={{ width: 60 }} /> // Spacer to mimic layout if no thumbnail
-                )} 
-                 
                 <TouchableOpacity onPress={() => onMorePress(item)} style={styles.moreButton}>
                     <Ionicons name="ellipsis-vertical" size={20} color="#666" />
                 </TouchableOpacity>
@@ -94,7 +184,10 @@ const Notificaciones: React.FC = () => {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      setNotifications(data || []);
+      
+      // Filter out any potential duplicates by ID
+      const uniqueNotifications = Array.from(new Map((data || []).map(item => [item.id, item])).values());
+      setNotifications(uniqueNotifications);
     } catch (error) {
       console.error("Error loading notifications:", error);
     } finally {
@@ -217,10 +310,18 @@ const Notificaciones: React.FC = () => {
 
   const groupedNotifications = useMemo(() => {
     const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // Reset to start of day for comparison purposes?
+    // Actually, simply checking if it's the same day is safer.
     
+    const isSameDay = (d1: Date, d2: Date) => {
+        return d1.getFullYear() === d2.getFullYear() &&
+               d1.getMonth() === d2.getMonth() &&
+               d1.getDate() === d2.getDate();
+    };
+
     const oneWeekAgo = new Date(today);
     oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+    oneWeekAgo.setHours(0,0,0,0); // Start of that day
 
     const groups = {
         hoy: [] as Notification[],
@@ -229,14 +330,12 @@ const Notificaciones: React.FC = () => {
     };
 
     notifications.forEach(n => {
-        const nDate = new Date(n.created_at);
-        // Normalize time for comparison
-        const nDateOnly = new Date(nDate);
-        nDateOnly.setHours(0,0,0,0);
-
-        if (nDateOnly.getTime() === today.getTime()) {
+        const nDate = parseSupabaseDate(n.created_at);
+        
+        if (isSameDay(nDate, today)) {
             groups.hoy.push(n);
-        } else if (nDateOnly >= oneWeekAgo) {
+        } else if (nDate >= oneWeekAgo) {
+            // It's not today (checked above), but recent enough
             groups.semana.push(n);
         } else {
             groups.anteriores.push(n);
@@ -339,6 +438,11 @@ const styles = StyleSheet.create({
     backgroundColor: "#F97316",
     justifyContent: "center",
     alignItems: "center",
+  },
+  avatarImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
   },
   unreadDot: {
     position: 'absolute',

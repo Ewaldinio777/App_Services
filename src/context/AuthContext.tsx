@@ -37,8 +37,13 @@ export const AuthProvider: React.FC<{
 
   const logout = async () => {
     const { error } = await supabase.auth.signOut();
-    if (error) console.error("Logout error:", error);
-    // session will be updated via the onAuthStateChange listener
+    if (error) {
+      if (error.message === "Auth session missing!") {
+        setSession(null);
+      } else {
+        console.error("Logout error:", error);
+      }
+    }
   };
 
   return (

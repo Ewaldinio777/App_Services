@@ -25,6 +25,8 @@
     "@types/lodash": "^4.17.23",
     "babel-plugin-module-resolver": "^5.0.2",
     "expo": "~54.0.29",
+    "expo-file-system": "^19.0.21",
+    "expo-image-picker": "^17.0.10",
     "expo-status-bar": "~3.0.9",
     "lodash": "^4.17.23",
     "nativewind": "^4.1.23",

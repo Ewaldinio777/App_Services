@@ -96,6 +96,37 @@ const ClientOrdersView: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
       }, [loadOrders])
   );
 
+  useEffect(() => {
+    if (!session?.user) return;
+    
+    // Suscripción a cambios en perfiles para actualizar avatares en tiempo real
+    const profilesSubscription = supabase
+      .channel('public:profiles_orders')
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'profiles' },
+        (payload) => {
+           const updatedProfile = payload.new as Profile;
+           setOrders(prevOrders => prevOrders.map(order => {
+              // Actualizar provider si coincide
+              if (order.provider?.id === updatedProfile.id) {
+                return { ...order, provider: { ...order.provider, ...updatedProfile } };
+              }
+              // Actualizar client si coincide (si mostramos información del cliente)
+              if (order.client?.id === updatedProfile.id) {
+                 return { ...order, client: { ...order.client, ...updatedProfile } };
+              }
+              return order;
+           }));
+        }
+      )
+      .subscribe();
+
+      return () => {
+        profilesSubscription.unsubscribe();
+      };
+  }, [session?.user]);
+
   const onRefresh = () => {
     setRefreshing(true);
     loadOrders();
