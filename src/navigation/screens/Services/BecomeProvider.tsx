@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import {
   View,
   Text,
@@ -11,6 +11,8 @@ import {
   Modal,
   FlatList,
   Image,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import { useAuth } from "../../../context/AuthContext";
 import { supabase } from "@/src/lib/supabase-client";
@@ -29,6 +31,20 @@ const PHONE_PREFIXES = ["0414", "0424", "0412", "0422", "0416", "0426"];
 
 const BecomeProvider: React.FC = () => {
   const { session } = useAuth();
+  const scrollViewRef = useRef<ScrollView>(null);
+  const inputYPositions = useRef<{ [key: string]: number }>({});
+
+  const handleInputLayout = (id: string, event: any) => {
+    inputYPositions.current[id] = event.nativeEvent.layout.y;
+  };
+
+  const scrollToInput = (id: string) => {
+    const y = inputYPositions.current[id];
+    if (y !== undefined && scrollViewRef.current) {
+      scrollViewRef.current.scrollTo({ y: y, animated: true });
+    }
+  };
+
   const navigation = useNavigation();
   const [submitting, setSubmitting] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
@@ -146,8 +162,16 @@ const BecomeProvider: React.FC = () => {
   }
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.formContainer}>
+    <KeyboardAvoidingView
+      style={{ flex: 1, backgroundColor: "#fff" }}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 64 : 0}
+    >
+      <ScrollView
+        ref={scrollViewRef}
+        contentContainerStyle={styles.scrollContent}
+      >
+        <View style={styles.formContainer}>
         <View style={styles.avatarContainer}>
           {profile?.avatar_url ? (
             <Image 
@@ -166,42 +190,48 @@ const BecomeProvider: React.FC = () => {
           Completa tus datos profesionales para empezar a ofrecer servicios.
         </Text>
 
-        <Text style={styles.label}>Cédula de Identidad *</Text>
-        <View style={styles.rowContainer}>
-          <TouchableOpacity
-            style={styles.prefixSelector}
-            onPress={() => setShowIdTypeModal(true)}
-          >
-            <Text style={styles.prefixText}>{idType}</Text>
-          </TouchableOpacity>
-          <TextInput
-            style={[styles.input, styles.flexInput]}
-            placeholder="Número de documento"
-            value={idBody}
-            onChangeText={setIdBody}
-            keyboardType="phone-pad"
-            maxLength={10}
-          />
+        <View onLayout={(e) => handleInputLayout("cedula", e)}>
+          <Text style={styles.label}>Cédula de Identidad *</Text>
+          <View style={styles.rowContainer}>
+            <TouchableOpacity
+              style={styles.prefixSelector}
+              onPress={() => setShowIdTypeModal(true)}
+            >
+              <Text style={styles.prefixText}>{idType}</Text>
+            </TouchableOpacity>
+            <TextInput
+              style={[styles.input, styles.flexInput]}
+              placeholder="Número de documento"
+              value={idBody}
+              onChangeText={setIdBody}
+              keyboardType="phone-pad"
+              maxLength={10}
+              onFocus={() => scrollToInput("cedula")}
+            />
+          </View>
         </View>
 
 
 
-        <Text style={styles.label}>Número de Teléfono *</Text>
-        <View style={styles.rowContainer}>
-          <TouchableOpacity
-            style={styles.prefixSelector}
-            onPress={() => setShowPhonePrefixModal(true)}
-          >
-            <Text style={styles.prefixText}>{phonePrefix}</Text>
-          </TouchableOpacity>
-          <TextInput
-            style={[styles.input, styles.flexInput]}
-            placeholder="Número de Teléfono"
-            keyboardType="phone-pad"
-            value={phoneBody}
-            onChangeText={setPhoneBody}
-            maxLength={7}
-          />
+        <View onLayout={(e) => handleInputLayout("telefono", e)}>
+          <Text style={styles.label}>Número de Teléfono *</Text>
+          <View style={styles.rowContainer}>
+            <TouchableOpacity
+              style={styles.prefixSelector}
+              onPress={() => setShowPhonePrefixModal(true)}
+            >
+              <Text style={styles.prefixText}>{phonePrefix}</Text>
+            </TouchableOpacity>
+            <TextInput
+              style={[styles.input, styles.flexInput]}
+              placeholder="Número de Teléfono"
+              keyboardType="phone-pad"
+              value={phoneBody}
+              onChangeText={setPhoneBody}
+              maxLength={7}
+              onFocus={() => scrollToInput("telefono")}
+            />
+          </View>
         </View>
 
                 <Text style={styles.label}>Especialización *</Text>
@@ -213,29 +243,35 @@ const BecomeProvider: React.FC = () => {
           </View>
         </TouchableOpacity>
 
-        <Text style={styles.label}>Descripción de tu perfil *</Text>
-        <TextInput
-          style={[styles.input, styles.textArea]}
-          placeholder="Soy plomero con 10 años de experiencia..."
-          multiline
-          numberOfLines={3}
-          value={formData.description}
-          onChangeText={(text) =>
-            setFormData({ ...formData, description: text })
-          }
-        />
+        <View onLayout={(e) => handleInputLayout("descripcion", e)}>
+          <Text style={styles.label}>Descripción de tu perfil *</Text>
+          <TextInput
+            style={[styles.input, styles.textArea]}
+            placeholder="Soy plomero con 10 años de experiencia..."
+            multiline
+            numberOfLines={3}
+            value={formData.description}
+            onChangeText={(text) =>
+              setFormData({ ...formData, description: text })
+            }
+            onFocus={() => scrollToInput("descripcion")}
+          />
+        </View>
 
-        <Text style={styles.label}>Experiencia Previa</Text>
-        <TextInput
-          style={[styles.input, styles.textArea]}
-          placeholder="Trabajé en la empresa X..."
-          multiline
-          numberOfLines={3}
-          value={formData.experience}
-          onChangeText={(text) =>
-            setFormData({ ...formData, experience: text })
-          }
-        />
+        <View onLayout={(e) => handleInputLayout("experiencia", e)}>
+          <Text style={styles.label}>Experiencia Previa</Text>
+          <TextInput
+            style={[styles.input, styles.textArea]}
+            placeholder="Trabajé en la empresa X..."
+            multiline
+            numberOfLines={3}
+            value={formData.experience}
+            onChangeText={(text) =>
+              setFormData({ ...formData, experience: text })
+            }
+            onFocus={() => scrollToInput("experiencia")}
+          />
+        </View>
 
         <TouchableOpacity
           style={styles.button}
@@ -367,14 +403,21 @@ const BecomeProvider: React.FC = () => {
           </View>
         </TouchableOpacity>
       </Modal>
-    </ScrollView>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 };
+
+
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#fff",
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: 200,
   },
   centerContainer: {
     flex: 1,

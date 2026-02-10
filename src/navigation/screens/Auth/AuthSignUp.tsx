@@ -232,8 +232,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   logo: {
-    width: 100,
-    height: 100,
+     width: 150,
+    height: 150,
   },
   formContainer: {
     width: '100%',

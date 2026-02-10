@@ -39,18 +39,70 @@ const categories = [
   "Limpieza",
 ];
 
+  const loadUserProfile = useCallback(async () => {
+    try {
+      if (!session?.user) return;
+      
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('is_provider, full_name')
+        .eq('id', session.user.id)
+        .single();
+
+      if (error) throw error;
+      setIsProvider(data?.is_provider || false);
+      setUserName(data?.full_name || "");
+    } catch (error) {
+      console.error('Error loading user profile:', error);
+    }
+  }, [session]);
+
+  const loadUnreadNotifications = useCallback(async () => {
+    try {
+      if (!session?.user) return;
+
+      const { count, error } = await supabase
+        .from('notifications')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', session.user.id)
+        .eq('is_read', false);
+
+      if (error) throw error;
+      setUnreadCount(count || 0);
+    } catch (error) {
+      console.error('Error loading notifications count:', error);
+    }
+  }, [session]);
+
+  const loadProviders = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('providers')
+        .select(`
+          *,
+          profile:profiles(*)
+        `)
+        .order('rating', { ascending: false, nullsFirst: false });
+
+      if (error) throw error;
+      setProviders(data || []);
+    } catch (error) {
+      console.error('Error loading providers:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   useFocusEffect(
     useCallback(() => {
         loadProviders();
         loadUnreadNotifications();
-    }, [])
+        loadUserProfile();
+    }, [loadProviders, loadUnreadNotifications, loadUserProfile])
   );
 
   useEffect(() => {
     if (session?.user) {
-      loadUserProfile();
-      loadUnreadNotifications();
-      // loadProviders(); // Now called in useFocusEffect
       
       // Subscribe to notifications changes
       const subscription = supabase
@@ -89,25 +141,7 @@ const categories = [
         profilesSubscription.unsubscribe();
       };
     }
-  }, [session]);
-
-  const loadUserProfile = async () => {
-    try {
-      if (!session?.user) return;
-      
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('is_provider, full_name')
-        .eq('id', session.user.id)
-        .single();
-
-      if (error) throw error;
-      setIsProvider(data?.is_provider || false);
-      setUserName(data?.full_name || "");
-    } catch (error) {
-      console.error('Error loading user profile:', error);
-    }
-  };
+  }, [session, loadUnreadNotifications]);
 
   const filteredProviders = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -138,43 +172,6 @@ const categories = [
     });
   }, [providers, searchQuery, selectedCategory, selectedState, session?.user?.id]);
 
-  const loadUnreadNotifications = async () => {
-    try {
-      if (!session?.user) return;
-
-      const { count, error } = await supabase
-        .from('notifications')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', session.user.id)
-        .eq('is_read', false);
-
-      if (error) throw error;
-      setUnreadCount(count || 0);
-    } catch (error) {
-      console.error('Error loading notifications count:', error);
-    }
-  };
-
-  const loadProviders = async () => {
-    try {
-      // setLoading(true); // Removing setLoading(true) to avoid full flicker on every focus
-      const { data, error } = await supabase
-        .from('providers')
-        .select(`
-          *,
-          profile:profiles(*)
-        `)
-        .order('rating', { ascending: false, nullsFirst: false });
-
-      if (error) throw error;
-      setProviders(data || []);
-    } catch (error) {
-      console.error('Error loading providers:', error);
-    } finally {
-      if (loading) setLoading(false); // Only unset loading if it was initially true (first load)
-    }
-  };
-
   if (!session) {
     return (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
@@ -195,6 +192,27 @@ const categories = [
         keyboardDismissMode="on-drag"
       >
       <View style={styles.headerContainer}>
+        <View style={styles.topHeaderRow}>
+          <Image 
+            source={require('assets/Logo-servicios.png')} 
+            style={styles.headerLogo} 
+            resizeMode="contain" 
+          />
+          <TouchableOpacity
+            style={styles.notificationButton}
+            onPress={() => navigation.navigate("Notificaciones")}
+          >
+            <Ionicons name="notifications-outline" size={40} color="#F97316" />
+            {unreadCount > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
+
         <View style={styles.headerSubRow}>
           <View style={styles.greetingContainer}>
             <Text style={styles.greetingText}>Hola{userName ? "," : ""}</Text>
@@ -234,20 +252,6 @@ const categories = [
               </TouchableOpacity>
             )}
           </View>
-          
-          <TouchableOpacity
-            style={styles.notificationButton}
-            onPress={() => navigation.navigate("Notificaciones")}
-          >
-            <Ionicons name="notifications-outline" size={26} color="#F97316" />
-            {unreadCount > 0 && (
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>
-                  {unreadCount > 99 ? '99+' : unreadCount}
-                </Text>
-              </View>
-            )}
-          </TouchableOpacity>
         </View>
 
         <View style={styles.filtersRow}>
@@ -422,7 +426,7 @@ const categories = [
 const styles = StyleSheet.create({
   headerContainer: {
     paddingHorizontal: 20,
-    paddingTop: 40, // More space for top status bar area
+    paddingTop: 10, // More space for top status bar area
     paddingBottom: 10,
   },
   screenTitle: {
@@ -455,7 +459,7 @@ const styles = StyleSheet.create({
   notificationButton: {
     position: 'relative',
     marginLeft: 10,
-    backgroundColor: '#E0F2FE', // Light blue/orange tint background for bell? Image has transparent/blue icon. Let's keep icon color #F97316 but maybe no bg or circle bg.
+    backgroundColor: '#fff', // Light blue/orange tint background for bell? Image has transparent/blue icon. Let's keep icon color #F97316 but maybe no bg or circle bg.
     // Image shows distinct blue bell. We use #F97316.
     padding: 8,
     borderRadius: 20,
@@ -685,7 +689,17 @@ const styles = StyleSheet.create({
   modalButtonText: {
     color: '#333',
     fontWeight: '600'
-  }
+  },
+  topHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  headerLogo: {
+    width: 130,
+    height: 70,
+  },
 });
 
 export default Servicios;

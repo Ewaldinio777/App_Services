@@ -274,7 +274,7 @@ export default function ScheduleServiceScreen() {
             ) : (
                 <>
                 <Ionicons name="calendar" size={24} color="#fff" style={{ marginRight: 8 }} />
-                <Text style={styles.scheduleButtonText}>Agendar</Text>
+                <Text style={styles.scheduleButtonText}>Contratar Servicio</Text>
                 </>
             )}
         </TouchableOpacity>

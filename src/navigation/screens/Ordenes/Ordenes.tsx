@@ -266,7 +266,7 @@ const ClientOrdersView: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
   const getStatusInfo = (status: string, review?: Review) => {
       if (status === 'pendiente' || status === 'pending') return { text: 'Pendiente', color: '#666' };
       if (status === 'aceptado' || status === 'en_proceso') return { text: 'En Proceso', color: '#F97316' };
-      if (status === 'completado' && !review) return { text: 'Pendiente de Confirmación', color: '#F97316' };
+      if (status === 'completado' && !review) return { text: 'Pendiente por Confirmar', color: '#F97316' };
       if (status === 'completado' && review) {
           if (review.complaint) return { text: 'Queja Registrada', color: '#FF3B30' };
           return { text: `Completado (★ ${review.rating})`, color: '#34C759' };
@@ -315,9 +315,16 @@ const ClientOrdersView: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
                       )}
                       <View>
                           <Text style={styles.providerName}>{order.provider?.full_name || 'Proveedor'}</Text>
-                          <Text style={styles.serviceType}>{order.title || order.service_type || "Servicio"}</Text>
+                          <Text style={styles.serviceType}>
+                            <Ionicons name="briefcase-outline" size={14} color="#666" /> {order.title || order.service_type || "Servicio"}
+                          </Text>
+                          {order.delivery_address && (
+                            <Text style={styles.addressText}>
+                                <Ionicons name="location-outline" size={14} color="#6B7280" /> {order.delivery_address}
+                            </Text>
+                          )}
                           <Text style={styles.dateText}>
-                              {order.scheduled_date ? (
+                              <Ionicons name="calendar-outline" size={14} color="#999" /> {order.scheduled_date ? (
                                   `${order.scheduled_date.split('T')[0].split('-').reverse().join('/')} • ${order.scheduled_time?.substring(0,5) || '00:00'}`
                               ) : (
                                   `${new Date(order.created_at).toLocaleDateString()} • ${new Date(order.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`
@@ -328,7 +335,7 @@ const ClientOrdersView: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
                 </View>
                 <View style={styles.divider} />
                 <View style={styles.cardBody}>
-                    <Text style={styles.statusLabel}>Estado: </Text>
+                    <Text style={styles.statusLabel}>Estado de la órden: </Text>
                     <Text style={[styles.statusValue, { color: getStatusInfo(order.status, order.reviewDetails).color }]}>
                         {getStatusInfo(order.status, order.reviewDetails).text}
                     </Text>
@@ -570,9 +577,16 @@ const ProviderOrdersView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                                     )}
                                     <View>
                                         <Text style={styles.providerName}>{order.client?.full_name}</Text>
-                                        <Text style={styles.serviceType}>{order.title || order.service_type}</Text>
+                                        <Text style={styles.serviceType}>
+                                            <Ionicons name="briefcase-outline" size={14} color="#666" /> {order.title || order.service_type}
+                                        </Text>
+                                        {order.delivery_address && (
+                                            <Text style={styles.addressText}>
+                                                <Ionicons name="location-outline" size={14} color="#6B7280" /> {order.delivery_address}
+                                            </Text>
+                                        )}
                                         <Text style={styles.dateText}>
-                                            {order.scheduled_date ? (
+                                            <Ionicons name="calendar-outline" size={14} color="#999" /> {order.scheduled_date ? (
                                                 `${order.scheduled_date.split('T')[0].split('-').reverse().join('/')} • ${order.scheduled_time?.substring(0,5) || '00:00'}`
                                             ) : (
                                                 `${new Date(order.created_at).toLocaleDateString()} • ${new Date(order.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`
@@ -1020,6 +1034,7 @@ const styles = StyleSheet.create({
   avatar: { width: 40, height: 40, borderRadius: 20, marginRight: 10 },
   providerName: { fontSize: 16, fontWeight: 'bold', color: '#333' },
   serviceType: { fontSize: 14, color: '#666' },
+  addressText: { fontSize: 12, color: '#6B7280', marginTop: 2, marginBottom: 2 },
   dateText: { fontSize: 12, color: '#999', marginTop: 4 },
   
   divider: { height: 1, backgroundColor: '#f0f0f0', marginVertical: 8 },
