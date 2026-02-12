@@ -370,21 +370,27 @@ const Notificaciones: React.FC = () => {
             {groupedNotifications.hoy.length > 0 && (
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>Hoy</Text>
-                    {groupedNotifications.hoy.map(n => <NotificationItem key={n.id} item={n} onPress={handleNotificationPress} onMorePress={handleMorePress} />)}
+                    {groupedNotifications.hoy.map(n => (
+                        n.id ? <NotificationItem key={n.id} item={n} onPress={handleNotificationPress} onMorePress={handleMorePress} /> : null
+                    ))}
                 </View>
             )}
             
             {groupedNotifications.semana.length > 0 && (
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>Esta semana</Text>
-                    {groupedNotifications.semana.map(n => <NotificationItem key={n.id} item={n} onPress={handleNotificationPress} onMorePress={handleMorePress} />)}
+                    {groupedNotifications.semana.map(n => (
+                        n.id ? <NotificationItem key={n.id} item={n} onPress={handleNotificationPress} onMorePress={handleMorePress} /> : null
+                    ))}
                 </View>
             )}
 
             {groupedNotifications.anteriores.length > 0 && (
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>Anteriores</Text>
-                    {groupedNotifications.anteriores.map(n => <NotificationItem key={n.id} item={n} onPress={handleNotificationPress} onMorePress={handleMorePress} />)}
+                    {groupedNotifications.anteriores.map(n => (
+                         n.id ? <NotificationItem key={n.id} item={n} onPress={handleNotificationPress} onMorePress={handleMorePress} /> : null
+                    ))}
                 </View>
             )}
           </>

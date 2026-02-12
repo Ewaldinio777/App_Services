@@ -181,7 +181,10 @@ const Chats: React.FC = () => {
           return timeB - timeA;
         });
 
-      setChats(sortedChats);
+      // Asegurar unicidad por si acaso
+      const uniqueChats = Array.from(new Map(sortedChats.map(c => [c.id, c])).values());
+
+      setChats(uniqueChats);
     } catch (error) {
       console.error('Error loading chats:', error);
     } finally {

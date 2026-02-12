@@ -23,18 +23,36 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.anonymous.knockknocklite"
+      "package": "com.anonymous.knockknocklite",
+      "googleServicesFile": "./google-services.json",
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.POST_NOTIFICATIONS"
+      ]
     },
     "plugins": [
-        [
-            "expo-image-picker",
-            {
-                "photosPermission": "The app accesses your photos to let you set your profile picture."
-            }
-        ]
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/adaptive-icon.png",
+          "color": "#ffffff"
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "The app accesses your photos to let you set your profile picture."
+        }
+      ]
     ],
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "5ff49254-f7d0-4c24-a4be-ca4fbdca5868"
+      }
+    },
+    "owner": "waror"
   }
 }

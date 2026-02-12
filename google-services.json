@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "885564779385",
+    "project_id": "knockknock-e25bd",
+    "storage_bucket": "knockknock-e25bd.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:885564779385:android:7123262db749fa32e1dda8",
+        "android_client_info": {
+          "package_name": "com.anonymous.knockknocklite"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAbz2yPgpCF-vzUiqXpWWKyoXRrKVFYhWI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
