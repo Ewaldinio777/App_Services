@@ -5,11 +5,15 @@
     "scheme": "knock-knock-lite",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/LOGO-ICON.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
+    "notification": {
+      "icon": "./assets/LOGO-ICON.png",
+      "color": "#ffffff"
+    },
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/LOGO-ICON.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
@@ -18,7 +22,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/LOGO-ICON.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
@@ -34,7 +38,7 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/adaptive-icon.png",
+          "icon": "./assets/LOGO-ICON.png",
           "color": "#ffffff"
         }
       ],
@@ -46,7 +50,7 @@
       ]
     ],
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/LOGO-ICON.png"
     },
     "extra": {
       "eas": {

@@ -136,7 +136,7 @@ export default function ScheduleServiceScreen() {
         await supabase.from('notifications').insert({
               user_id: provider.id,
               title: "¡Nueva Solicitud de Servicio!",
-              body: `${clientName} solicita un servicio de ${requestTitle}. Responde antes de que expire.`,
+              body: `${clientName} solicita un servicio de ${requestTitle}. Responde ahora mismo.`,
               type: 'order',
               related_id: newOrder.id, 
               is_read: false
@@ -158,7 +158,7 @@ export default function ScheduleServiceScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="#0000ff" />
+        <ActivityIndicator size="large" color="#F97316" />
       </View>
     );
   }
@@ -204,7 +204,7 @@ export default function ScheduleServiceScreen() {
             <View style={styles.compactInput}>
                 <TextInput
                     style={{ flex: 1, color: '#333', paddingVertical: 0 }}
-                    placeholder="Dirección del servicio"
+                    placeholder="Ej: Calle Ejemplo 123, Ciudad Ejemplo"
                     placeholderTextColor="#999"
                     value={address}
                     onChangeText={setAddress}

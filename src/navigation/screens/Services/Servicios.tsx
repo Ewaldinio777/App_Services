@@ -511,7 +511,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#fff', // White background
     paddingHorizontal: 15,
-    paddingVertical: 12,
+    paddingVertical: 8,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#F97316', // Orange border

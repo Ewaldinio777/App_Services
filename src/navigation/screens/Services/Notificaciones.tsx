@@ -44,7 +44,7 @@ const formatRelativeTime = (dateString: string) => {
 
 const NotificationItem = ({ item, onPress, onMorePress }: { item: Notification; onPress: (n: Notification) => void; onMorePress: (n: Notification) => void }) => {
     const { session } = useAuth();
-    const [relatedProfile, setRelatedProfile] = useState<{ avatar_url?: string } | null>(null);
+    const [relatedProfile, setRelatedProfile] = useState<{ id: string; full_name?: string; avatar_url?: string } | null>(null);
 
     useEffect(() => {
         const fetchRelatedProfile = async () => {
@@ -60,7 +60,7 @@ const NotificationItem = ({ item, onPress, onMorePress }: { item: Notification; 
                 const isComplaint = item.type === 'complaint' || titleLower.includes('queja') || bodyLower.includes('queja');
 
                 if (isComplaint) {
-                    // Do nothing, leave profileIdToFetch null so it shows the bell icon
+                    // Do nothing for complaints/system messages
                 } else if (item.type === 'chat' || item.type === 'message' || titleLower.includes('mensaje') || bodyLower.includes('mensaje')) {
                      // For chat, we need to find the OTHER participant
                      const { data: chatData } = await supabase.from('chats').select('*').eq('id', item.related_id).maybeSingle();
@@ -83,6 +83,7 @@ const NotificationItem = ({ item, onPress, onMorePress }: { item: Notification; 
                      const { data: orderData } = await supabase.from('orders').select('*').eq('id', item.related_id).maybeSingle();
                      
                      if (orderData) {
+                         // If I am the provider, fetch client. If I am client, fetch provider.
                          if (orderData.provider_id === session.user.id) {
                               profileIdToFetch = orderData.client_id;
                          } else {
@@ -94,10 +95,8 @@ const NotificationItem = ({ item, onPress, onMorePress }: { item: Notification; 
                          if (reviewData) {
                              profileIdToFetch = reviewData.reviewer_id;
                          } else if (item.related_id === session.user.id && (item.type === 'order' || titleLower.includes('solicit'))) {
-                              // Heuristic for broken notifications where related_id was wrongly set to provider_id (me) instead of order_id
-                              // Try to find a pending order created very close to this notification
+                              // Heuristic for broken notifications
                               const notifTime = new Date(item.created_at).getTime();
-                              // Check within a 2 minute window (1 min before, 1 min after) to be safe
                               const lowerBound = new Date(notifTime - 60000).toISOString();
                               const upperBound = new Date(notifTime + 60000).toISOString();
 
@@ -118,11 +117,10 @@ const NotificationItem = ({ item, onPress, onMorePress }: { item: Notification; 
                 }
                 
                 if (profileIdToFetch) {
-                    const { data: profile } = await supabase.from('profiles').select('avatar_url').eq('id', profileIdToFetch).single();
+                    const { data: profile } = await supabase.from('profiles').select('id, full_name, avatar_url').eq('id', profileIdToFetch).single();
                     if (profile) setRelatedProfile(profile);
                 }
              } catch (e) {
-                 // Silent fail for avatar
                  console.log("Error fetching avatar for notif", e);
              }
         };
@@ -140,7 +138,15 @@ const NotificationItem = ({ item, onPress, onMorePress }: { item: Notification; 
             <View style={styles.avatarContainer}>
                 {relatedProfile?.avatar_url ? (
                     <Image source={{ uri: relatedProfile.avatar_url }} style={styles.avatarImage} />
+                ) : relatedProfile?.full_name ? (
+                     // Fallback to Initials if we know it's a user but they have no avatar
+                     <View style={styles.avatarPlaceholder}>
+                         <Text style={{ color: "#fff", fontWeight: "bold", fontSize: 16 }}>
+                             {relatedProfile.full_name.charAt(0).toUpperCase()}
+                         </Text>
+                     </View>
                 ) : (
+                    // Default System Icon
                     <View style={styles.avatarPlaceholder}>
                          <Ionicons name="notifications" size={20} color="#fff" />
                     </View>
@@ -149,6 +155,7 @@ const NotificationItem = ({ item, onPress, onMorePress }: { item: Notification; 
             </View>
 
             {/* Middle: Content */}
+
             <View style={styles.contentContainer}>
                 <Text style={styles.notificationBody} numberOfLines={3}>
                      {item.body}

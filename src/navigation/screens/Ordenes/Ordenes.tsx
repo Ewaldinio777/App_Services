@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { View, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, RefreshControl, Image, Modal, TextInput, Alert, Platform, Dimensions } from "react-native";
+import { View, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, RefreshControl, Image, Modal, TextInput, Alert, Platform, Dimensions, KeyboardAvoidingView } from "react-native";
 import { Text } from "@/src/components/ui/text";
 import { useAuth } from "../../../context/AuthContext";
 import { supabase } from "@/src/lib/supabase-client";
@@ -25,6 +25,63 @@ interface ReviewWithDetails extends Review {
 
 // --- SUB-COMPONENTS ---
 
+const OrderDetailsModal: React.FC<{
+  visible: boolean;
+  onClose: () => void;
+  order: OrderWithDetails | null;
+  role: 'client' | 'provider';
+}> = ({ visible, onClose, order, role }) => {
+  if (!order) return null;
+
+  const counterpart = role === 'client' ? order.provider : order.client;
+  // If role is client, we are viewing the provider. If role is provider, we are viewing the client who requested.
+  const counterpartLabel = role === 'provider' ? "Solicitado por" : "Proveedor"; 
+
+  const formatDate = (dateStr?: string) => {
+      if (!dateStr) return "";
+      try {
+        return dateStr.split('T')[0].split('-').reverse().join('/');
+      } catch (e) { return dateStr; }
+  };
+
+  return (
+    <Modal visible={visible} transparent={true} animationType="fade" onRequestClose={onClose}>
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <Text style={styles.modalTitle}>{order.title || order.service_type || 'Detalles del Servicio'}</Text>
+          
+          <ScrollView style={{ maxHeight: 300 }}>
+             <Text style={styles.detailLabel}>Descripción:</Text>
+             <Text style={styles.detailText}>{order.description || "Sin descripción detallada."}</Text>
+             
+             <Text style={styles.detailLabel}>Fecha y Hora Pautada:</Text>
+             <Text style={styles.detailText}>
+                {order.scheduled_date 
+                  ? `${formatDate(order.scheduled_date)} a las ${order.scheduled_time?.substring(0,5) || '??:??'}` 
+                  : "Fecha no especificada"}
+             </Text>
+
+             {order.delivery_address && (
+               <>
+                 <Text style={styles.detailLabel}>Ubicación:</Text>
+                 <Text style={styles.detailText}>{order.delivery_address}</Text>
+               </>
+             )}
+          </ScrollView>
+
+          <View style={styles.modalFooter}>
+             <Text style={styles.smallUserText}>{counterpartLabel}: {counterpart?.full_name || 'Usuario'}</Text>
+          </View>
+          
+          <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+            <Text style={{color: '#000'}}>Cerrar</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
 // 1. Client View (The one we built previously)
 const ClientOrdersView: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
   const { session } = useAuth();
@@ -44,6 +101,15 @@ const ClientOrdersView: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
   const [reportModalVisible, setReportModalVisible] = useState(false);
   const [reportReason, setReportReason] = useState("");
   const [reportDescription, setReportDescription] = useState("");
+
+  // Details Modal State
+  const [detailModalVisible, setDetailModalVisible] = useState(false);
+  const [selectedDetailOrder, setSelectedDetailOrder] = useState<OrderWithDetails | null>(null);
+
+  const openDetailModal = (order: OrderWithDetails) => {
+    setSelectedDetailOrder(order);
+    setDetailModalVisible(true);
+  };
 
   const loadOrders = useCallback(async () => {
     try {
@@ -126,8 +192,25 @@ const ClientOrdersView: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
       )
       .subscribe();
 
+    // Nueva suscripción a cambios en ORDERS (Estados)
+    const ordersSubscription = supabase
+      .channel('public:orders_client_updates')
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'orders', filter: `client_id=eq.${session.user.id}` },
+        (payload) => {
+           console.log("Realtime order update (Client):", payload.new);
+           const updatedOrder = payload.new as Order;
+           setOrders((prevOrders) => 
+               prevOrders.map((o) => o.id === updatedOrder.id ? { ...o, ...updatedOrder } : o)
+           );
+        }
+      )
+      .subscribe();
+
       return () => {
         profilesSubscription.unsubscribe();
+        ordersSubscription.unsubscribe();
       };
   }, [session?.user]);
 
@@ -199,7 +282,7 @@ const ClientOrdersView: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
         const { error } = await supabase.from('reviews').insert({
           order_id: selectedOrder.id,
           reviewer_id: session?.user.id,
-          rating: 1, 
+          rating: null, 
           complaint: `${reportReason}: ${reportDescription}`,
           created_at: new Date().toISOString()
         });
@@ -211,7 +294,7 @@ const ClientOrdersView: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
         await supabase.from('notifications').insert({
             user_id: selectedOrder.provider_id,
             title: "Disputa Registrada",
-            body: "Se ha registrado una queja en uno de tus servicios. Nuestro equipo la está revisando.",
+            body: "Se ha registrado una queja en uno de tus servicios.",
             type: 'problem',
             related_id: selectedOrder.id,
             is_read: false
@@ -311,18 +394,13 @@ const ClientOrdersView: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
                       {order.provider?.avatar_url ? (
                           <Image source={{ uri: order.provider.avatar_url }} style={styles.avatar} />
                       ) : (
-                          <View style={[styles.avatar, { backgroundColor: '#ccc' }]} />
+                          <Ionicons name="person-circle" size={50} color="#F97316" style={{ marginRight: 10 }} />
                       )}
-                      <View>
+                      <View style={{flex: 1}}>
                           <Text style={styles.providerName}>{order.provider?.full_name || 'Proveedor'}</Text>
                           <Text style={styles.serviceType}>
                             <Ionicons name="briefcase-outline" size={14} color="#666" /> {order.title || order.service_type || "Servicio"}
                           </Text>
-                          {order.delivery_address && (
-                            <Text style={styles.addressText}>
-                                <Ionicons name="location-outline" size={14} color="#6B7280" /> {order.delivery_address}
-                            </Text>
-                          )}
                           <Text style={styles.dateText}>
                               <Ionicons name="calendar-outline" size={14} color="#999" /> {order.scheduled_date ? (
                                   `${order.scheduled_date.split('T')[0].split('-').reverse().join('/')} • ${order.scheduled_time?.substring(0,5) || '00:00'}`
@@ -331,8 +409,13 @@ const ClientOrdersView: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
                               )}
                           </Text>
                       </View>
+                                      <TouchableOpacity style={styles.moreDetailsButton} onPress={() => openDetailModal(order)}>
+                    <Text style={styles.moreDetailsText}>Más detalles...</Text>
+                </TouchableOpacity>
                   </View>
                 </View>
+
+
                 <View style={styles.divider} />
                 <View style={styles.cardBody}>
                     <Text style={styles.statusLabel}>Estado de la órden: </Text>
@@ -358,7 +441,11 @@ const ClientOrdersView: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
 
       {/* RATING MODAL */}
       <Modal visible={ratingModalVisible} transparent={true} animationType="slide" onRequestClose={() => setRatingModalVisible(false)}>
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === "ios" ? "padding" : "height"} 
+          style={styles.modalOverlay}
+        >
+            <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}>
             <View style={styles.modalContent}>
                 <Text style={styles.modalTitle}>Calificar Servicio</Text>
                 <View style={styles.starsContainer}>
@@ -374,12 +461,17 @@ const ClientOrdersView: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.closeButton} onPress={() => setRatingModalVisible(false)}><Text>Cancelar</Text></TouchableOpacity>
             </View>
-        </View>
+            </ScrollView>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* REPORT MODAL */}
       <Modal visible={reportModalVisible} transparent={true} animationType="slide" onRequestClose={() => setReportModalVisible(false)}>
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === "ios" ? "padding" : "height"} 
+          style={styles.modalOverlay}
+        >
+             <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}>
              <View style={styles.modalContent}>
                 <Text style={styles.modalTitle}>Reportar Problema</Text>
                 <TextInput 
@@ -395,8 +487,17 @@ const ClientOrdersView: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.closeButton} onPress={() => setReportModalVisible(false)}><Text>Cancelar</Text></TouchableOpacity>
              </View>
-        </View>
+             </ScrollView>
+        </KeyboardAvoidingView>
       </Modal>
+
+      {/* DETAILS MODAL */}
+      <OrderDetailsModal 
+        visible={detailModalVisible} 
+        onClose={() => setDetailModalVisible(false)} 
+        order={selectedDetailOrder} 
+        role="client" 
+      />
     </View>
   );
 };
@@ -410,6 +511,15 @@ const ProviderOrdersView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<'nuevas' | 'proceso' | 'historial'>('nuevas');
     const [processingId, setProcessingId] = useState<string | null>(null);
+
+    // Details Modal State
+    const [detailModalVisible, setDetailModalVisible] = useState(false);
+    const [selectedDetailOrder, setSelectedDetailOrder] = useState<OrderWithDetails | null>(null);
+
+    const openDetailModal = (order: OrderWithDetails) => {
+        setSelectedDetailOrder(order);
+        setDetailModalVisible(true);
+    };
 
     const loadProviderOrders = useCallback(async () => {
         try {
@@ -439,6 +549,41 @@ const ProviderOrdersView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     }, [session]);
 
     useFocusEffect(useCallback(() => { loadProviderOrders(); }, [loadProviderOrders]));
+
+    // Realtime subscription for Provider Orders
+    useEffect(() => {
+        if (!session?.user) return;
+
+        const ordersSub = supabase
+            .channel('public:orders_provider_realtime')
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'orders', filter: `provider_id=eq.${session.user.id}` },
+                async (payload) => {
+                    const eventType = payload.eventType;
+                    const newRecord = payload.new as Order;
+
+                    if (eventType === 'UPDATE') {
+                         setOrders((prev) => prev.map(o => o.id === newRecord.id ? { ...o, ...newRecord } : o));
+                    } else if (eventType === 'INSERT') {
+                         // Fetch client data to enrich the new order
+                         const { data: clientData } = await supabase
+                            .from('profiles')
+                            .select('*')
+                            .eq('id', newRecord.client_id)
+                            .single();
+                         
+                         const newOrderWithDetails: OrderWithDetails = { ...newRecord, client: clientData };
+                         setOrders((prev) => [newOrderWithDetails, ...prev]);
+                    }
+                }
+            )
+            .subscribe();
+
+        return () => {
+             ordersSub.unsubscribe();
+        };
+    }, [session?.user]);
 
     const handleChat = async (otherUserId: string) => {
         if (!session?.user) return;
@@ -573,18 +718,13 @@ const ProviderOrdersView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                                     {order.client?.avatar_url ? (
                                         <Image source={{ uri: order.client.avatar_url }} style={[styles.avatar, { width: 60, height: 60, borderRadius: 30 }]} />
                                     ) : (
-                                        <View style={[styles.avatar, { backgroundColor: '#ccc', width: 60, height: 60, borderRadius: 30 }]} />
+                                        <Ionicons name="person-circle" size={60} color="#F97316" style={{ marginRight: 10 }} />
                                     )}
-                                    <View>
-                                        <Text style={styles.providerName}>{order.client?.full_name}</Text>
+                                    <View style={{flex: 1}}>
+                                        <Text style={styles.providerName}>{order.client?.full_name || 'Cliente'}</Text>
                                         <Text style={styles.serviceType}>
                                             <Ionicons name="briefcase-outline" size={14} color="#666" /> {order.title || order.service_type}
                                         </Text>
-                                        {order.delivery_address && (
-                                            <Text style={styles.addressText}>
-                                                <Ionicons name="location-outline" size={14} color="#6B7280" /> {order.delivery_address}
-                                            </Text>
-                                        )}
                                         <Text style={styles.dateText}>
                                             <Ionicons name="calendar-outline" size={14} color="#999" /> {order.scheduled_date ? (
                                                 `${order.scheduled_date.split('T')[0].split('-').reverse().join('/')} • ${order.scheduled_time?.substring(0,5) || '00:00'}`
@@ -593,8 +733,13 @@ const ProviderOrdersView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                                             )}
                                         </Text>
                                     </View>
+                                    
+                            <TouchableOpacity style={styles.moreDetailsButton} onPress={() => openDetailModal(order)}>
+                                <Text style={styles.moreDetailsText}>Más detalles...</Text>
+                            </TouchableOpacity>
                                 </View>
                             </View>
+                            
                             
                             <View style={styles.divider}/>
                             
@@ -634,6 +779,14 @@ const ProviderOrdersView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                     ))
                 )}
             </ScrollView>
+
+            {/* DETAILS MODAL */}
+            <OrderDetailsModal 
+                visible={detailModalVisible} 
+                onClose={() => setDetailModalVisible(false)} 
+                order={selectedDetailOrder} 
+                role="provider" 
+            />
         </View>
     );
 };
@@ -651,6 +804,75 @@ const ProviderPerformanceView: React.FC<{ onBack: () => void }> = ({ onBack }) =
     const [referenceDate, setReferenceDate] = useState(new Date());
     const [minDate, setMinDate] = useState<Date | undefined>(undefined);
     const [showDatePicker, setShowDatePicker] = useState(false);
+
+    // Real-time subscription for Reviews/Complaints and Orders
+    useEffect(() => {
+        if (!session?.user) return;
+
+        // Channel for Reviews
+        const reviewsSub = supabase
+            .channel('public:reviews_provider_performance')
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'reviews' },
+                async (payload) => {
+                    const eventType = payload.eventType;
+                    const newReview = payload.new as Review;
+                    
+                    if (eventType === 'DELETE') {
+                         const deletedId = (payload.old as any)?.id;
+                         if (deletedId) {
+                             setReviews((prev) => prev.filter(r => r.id !== deletedId));
+                         }
+                         return;
+                    }
+
+                    if (!newReview || !newReview.order_id) return;
+
+                    // Verify if this review belongs to an order provided by me
+                    const { data: orderData } = await supabase
+                        .from('orders')
+                        .select('provider_id') // Optimize fetch
+                        .eq('id', newReview.order_id)
+                        .single();
+
+                    if (orderData && orderData.provider_id === session.user.id) {
+                         // Fetch full order details now that we know it's ours
+                         const { data: fullOrder } = await supabase
+                            .from('orders')
+                            .select('*')
+                            .eq('id', newReview.order_id)
+                            .single();
+
+                        // Fetch reviewer profile
+                        const { data: reviewerProfile } = await supabase
+                            .from('profiles')
+                            .select('*')
+                            .eq('id', newReview.reviewer_id)
+                            .single();
+                        
+                        const enrichedReview: ReviewWithDetails = { 
+                            ...newReview, 
+                            reviewer: reviewerProfile, 
+                            order: fullOrder
+                        };
+                        
+                        setReviews((prev) => {
+                            const exists = prev.some(r => r.id === enrichedReview.id);
+                            if (exists) {
+                                return prev.map(r => r.id === enrichedReview.id ? enrichedReview : r);
+                            }
+                            return [enrichedReview, ...prev];
+                        });
+                    }
+                }
+            )
+            .subscribe();
+
+        return () => {
+             supabase.removeChannel(reviewsSub);
+        };
+    }, [session?.user]);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -1064,15 +1286,23 @@ const styles = StyleSheet.create({
   statValue: { fontSize: 20, fontWeight: 'bold', color: '#F97316' },
 
   /* Modal Styles */
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 },
-  modalContent: { backgroundColor: '#fff', borderRadius: 16, padding: 24 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', padding: 20, justifyContent: 'center' },
+  modalContent: { backgroundColor: '#fff', borderRadius: 16, padding: 24, width: '100%' },
   modalTitle: { fontSize: 18, fontWeight: 'bold', textAlign: 'center', marginBottom: 16, color: '#333' },
   starsContainer: { flexDirection: 'row', justifyContent: 'center', gap: 8, marginBottom: 20 },
   commentInput: { backgroundColor: '#f9f9f9', borderRadius: 8, padding: 12, height: 100, textAlignVertical: 'top', marginBottom: 20, borderWidth: 1, borderColor: '#eee' },
   reasonSelect: { padding: 12, backgroundColor: '#f9f9f9', borderRadius: 8, borderWidth: 1, borderColor: '#eee', marginBottom: 16 },
   modalButton: { backgroundColor: '#000', padding: 16, borderRadius: 8, alignItems: 'center', marginBottom: 12 },
   modalButtonText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
-  closeButton: { alignItems: 'center', padding: 12 },
+  closeButton: { fontWeight: 'bold', alignItems: 'center', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#000' },
+
+  // Detail Modal Specific Styles
+  detailLabel: { fontSize: 14, fontWeight: 'bold', color: '#333', marginTop: 12 },
+  detailText: { fontSize: 14, color: '#555', marginTop: 4, lineHeight: 20 },
+  modalFooter: { marginTop: 20, borderTopWidth: 1, borderTopColor: '#eee', paddingTop: 10, alignItems: 'flex-end' },
+  smallUserText: { fontSize: 12, color: '#888', fontStyle: 'italic' },
+  moreDetailsButton: { alignSelf: 'flex-end', padding: 8 },
+  moreDetailsText: { color: '#F97316', fontSize: 12, fontWeight: 'bold', textDecorationLine: 'underline' },
 });
 
 export default Ordenes;

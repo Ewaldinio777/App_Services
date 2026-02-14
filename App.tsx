@@ -32,58 +32,6 @@ export default function App() {
   const notificationListener = useRef<any>();
   const responseListener = useRef<any>();
 
-  useEffect(() => {
-    // This listener is fired whenever a notification is received while the app is foregrounded
-    notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
-      console.log('Notification Received:', notification);
-    });
-
-    // This listener is fired whenever a user taps on or interacts with a notification (works when app is foregrounded, backgrounded, or killed)
-    responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
-      const data = response.notification.request.content.data;
-      console.log('Notification Response:', data);
-      
-      // Navigate to the appropriate screen
-      // If we have specific data, use it. Otherwise try to infer from type/related_id like Notificaciones.tsx
-      if (data?.screen) {
-         setTimeout(() => {
-            navigationRef.current?.navigate(data.screen, data.params);
-         }, 500);
-      } else if (data?.type) {
-         // Logic mirroring Notificaciones.tsx
-         setTimeout(() => {
-             const type = data.type; // 'order', 'chat', 'review', 'complaint'
-             const related_id = data.related_id;
-             
-             if (type === 'order' || type === 'request') {
-                  navigationRef.current?.navigate("MainTabs", { screen: "Ordenes" });
-             } else if (type === 'chat' || type === 'message') {
-                  if (related_id) {
-                      navigationRef.current?.navigate("ChatDetail", { chatId: related_id });
-                  } else {
-                      navigationRef.current?.navigate("MainTabs", { screen: "Chats" });
-                  }
-             } else if (type === 'review') {
-                  navigationRef.current?.navigate("MainTabs", { screen: "Perfil" });
-             } else {
-                  // Default
-                  navigationRef.current?.navigate("Notificaciones");
-             }
-         }, 500);
-      } else {
-         // Default to Notificaciones screen
-         setTimeout(() => {
-            navigationRef.current?.navigate('Notificaciones');
-         }, 500);
-      }
-    });
-
-    return () => {
-      Notifications.removeNotificationSubscription(notificationListener.current);
-      Notifications.removeNotificationSubscription(responseListener.current);
-    };
-  }, []);
-
   const Stack = createNativeStackNavigator<RootStackParamList>();
 
   function AppNavigator() {
@@ -100,6 +48,61 @@ export default function App() {
         });
       }
     }, [session]);
+
+    // Handle incoming notifications
+    useEffect(() => {
+      // This listener is fired whenever a notification is received while the app is foregrounded
+      notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
+        console.log('Notification Received:', notification);
+      });
+
+      // This listener is fired whenever a user taps on or interacts with a notification
+      responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
+        const data = response.notification.request.content.data;
+        console.log('Notification Response:', data);
+
+        // Only navigate if the user is authenticated
+        if (!session) {
+           console.log("User not logged in, skipping notification navigation");
+           return;
+        }
+        
+        // Navigate to the appropriate screen
+        if (data?.screen) {
+           setTimeout(() => {
+              navigationRef.current?.navigate(data.screen, data.params);
+           }, 500);
+        } else if (data?.type) {
+           setTimeout(() => {
+               const type = data.type; 
+               const related_id = data.related_id;
+               
+               if (type === 'order' || type === 'request') {
+                    navigationRef.current?.navigate("MainTabs", { screen: "Ordenes" });
+               } else if (type === 'chat' || type === 'message') {
+                    if (related_id) {
+                        navigationRef.current?.navigate("ChatDetail", { chatId: related_id });
+                    } else {
+                        navigationRef.current?.navigate("MainTabs", { screen: "Chats" });
+                    }
+               } else if (type === 'review') {
+                    navigationRef.current?.navigate("MainTabs", { screen: "Perfil" });
+               } else {
+                    navigationRef.current?.navigate("Notificaciones");
+               }
+           }, 500);
+        } else {
+           setTimeout(() => {
+              navigationRef.current?.navigate('Notificaciones');
+           }, 500);
+        }
+      });
+
+      return () => {
+        notificationListener.current?.remove();
+        responseListener.current?.remove();
+      };
+    }, [session]); // Re-run effect when session changes so we have the latest session value in closure
 
     if (!session) return <AuthNavigator />;
 

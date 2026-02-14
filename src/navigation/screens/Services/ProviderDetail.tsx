@@ -77,14 +77,16 @@ const ProviderDetail: React.FC = () => {
       if (reviewsError) throw reviewsError;
       
       const rawReviews = (reviewsData || []) as unknown as ReviewWithOrder[];
-      const sanitizedReviews = rawReviews.map(
-        ({ orders, ...review }) => review
-      );
+      // Filter out reviews that act as complaints (rating is null) or invalid ratings
+      const sanitizedReviews = rawReviews
+        .map(({ orders, ...review }) => review)
+        .filter(review => review.rating !== null && review.rating > 0);
+      
       setReviews(sanitizedReviews);
 
       // Calculate and update average rating
       if (sanitizedReviews.length > 0) {
-        const totalRating = sanitizedReviews.reduce((acc, curr) => acc + curr.rating, 0);
+        const totalRating = sanitizedReviews.reduce((acc, curr) => acc + (curr.rating || 0), 0);
         const averageRating = totalRating / sanitizedReviews.length;
 
         // Check if we need to update
@@ -273,7 +275,7 @@ const ProviderDetail: React.FC = () => {
         style={styles.contactButton}
         onPress={handleContactProvider}
       >
-        <Ionicons name="call" size={24} color="#fff" />
+        <Ionicons name="person" size={24} color="#fff" />
         <Text style={styles.contactButtonText}>Contactar</Text>
       </TouchableOpacity>
     </ScrollView>
