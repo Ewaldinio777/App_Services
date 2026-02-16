@@ -227,6 +227,14 @@ export default function ScheduleServiceScreen() {
               <View style={{flex: 1}}>
                   <Text style={styles.providerName}>{profile?.full_name || "Nombre Proveedor"}</Text>
                   
+                  {provider?.specialization && (
+                    <Text style={{ fontSize: 13, marginBottom: 2, fontWeight: '500' }}>
+                        {Array.isArray(provider.specialization) 
+                            ? provider.specialization.join(", ") 
+                            : provider.specialization}
+                    </Text>
+                  )}
+
                   <View style={styles.infoRowContainer}>
                      <View style={styles.infoItem}>
                         <Ionicons name="card-outline" size={14} color="#666" style={{marginRight: 4}} />
@@ -379,7 +387,7 @@ const styles = StyleSheet.create({
   providerName: {
     fontSize: 16,
     fontWeight: 'bold',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   infoRowContainer: {
      flexDirection: 'row',

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Alert, StyleSheet, View, TouchableOpacity, KeyboardAvoidingView, Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "../../../lib/supabase-client";
+import { translateError } from "../../../lib/error-translator";
 import { Button, ButtonText } from "../../../components/ui/button";
 import { Input, InputField, InputSlot, InputIcon } from "../../../components/ui/input";
 import { Text } from "../../../components/ui/text";
@@ -92,7 +93,7 @@ export default function AuthVerifyOTP() {
         });
 
         if (updateError) {
-          Alert.alert("Error", updateError.message);
+          Alert.alert("Error", translateError(updateError.message));
           return;
         }
 
@@ -108,7 +109,7 @@ export default function AuthVerifyOTP() {
         );
       }
     } catch (error: any) {
-      Alert.alert("Error", error.message);
+      Alert.alert("Error", translateError(error.message));
     } finally {
       setLoading(false);
     }
@@ -121,7 +122,7 @@ export default function AuthVerifyOTP() {
     });
 
     if (error) {
-      Alert.alert("Error", error.message);
+      Alert.alert("Error", translateError(error.message));
     } else {
       Alert.alert("Éxito", "Se ha enviado un nuevo código OTP");
       setTimer(60);

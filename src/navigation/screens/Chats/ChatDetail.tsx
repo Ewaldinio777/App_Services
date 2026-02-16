@@ -25,6 +25,13 @@ import type { RootStackParamList } from "../../types";
 
 type ChatDetailRouteProp = RouteProp<RootStackParamList, "ChatDetail">;
 
+const generateUUID = () => {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+};
+
 // CORRECCIÓN PRINCIPAL: Usamos la misma lógica robusta que en Chats.tsx
 const formatMessageTime = (utcTimeString: string) => {
   if (!utcTimeString) return "";
@@ -41,6 +48,7 @@ const formatMessageTime = (utcTimeString: string) => {
       hour: '2-digit',
       minute: '2-digit',
       timeZone: timeZone, // Forzamos la zona horaria del dispositivo
+      hour12: true,
     });
 
     const isSameDay = (d1: Date, d2: Date) => 
@@ -76,7 +84,7 @@ const formatMessageTime = (utcTimeString: string) => {
 
 const MessageItem = React.memo(({ message, currentUserId }: { message: Message, currentUserId: string }) => {
   const isMine = message.sender_id === currentUserId;
-  const isTemp = message.id.startsWith('temp-');
+  const isTemp = message.id.startsWith('temp-') || (message as any).pending; // Check for pending flag
   const hasError = (message as any).error;
 
   return (
@@ -359,19 +367,21 @@ const ChatDetail: React.FC = () => {
       }
     }
 
-    const tempId = `temp-${Date.now()}`;
+    const messageId = generateUUID();
     const now = new Date();
     // Guardamos en UTC (estándar ISO)
     const isoString = now.toISOString(); 
     
     const tempMessage: Message = {
-      id: tempId,
+      id: messageId,
       chat_id: targetChatId!,
       sender_id: session.user.id,
       content: trimmed,
       created_at: isoString, 
       is_read: false,
     };
+    // Mark as pending locally so UI can show it as "sending"
+    (tempMessage as any).pending = true;
 
     setMessages(prev => [tempMessage, ...prev]);
     setMessageText("");
@@ -380,10 +390,11 @@ const ChatDetail: React.FC = () => {
       const { data, error } = await supabase
         .from("messages")
         .insert({
+          id: messageId, // Use generated UUID
           chat_id: targetChatId!,
           sender_id: session.user.id,
           content: trimmed,
-          created_at: isoString, // Enviamos explícitamente el created_at que coincide con el optimista
+          created_at: isoString, 
         })
         .select()
         .single();
@@ -391,8 +402,9 @@ const ChatDetail: React.FC = () => {
       if (error) throw error;
       
       if (data) {
+        // Update the message with server data (e.g. if timestamps differ slightly) and remove pending flag
         setMessages(prev => 
-          prev.map(msg => msg.id === tempId ? data : msg)
+          prev.map(msg => msg.id === messageId ? data : msg)
         );
 
         // --- NOTIFICATION LOGIC ---
@@ -460,7 +472,7 @@ const ChatDetail: React.FC = () => {
       }
     } catch (error) {
       console.error("Error sending message:", error);
-      setMessages(prev => prev.map(msg => msg.id === tempId ? { ...msg, error: true } : msg));
+      setMessages(prev => prev.map(msg => msg.id === messageId ? { ...msg, error: true } : msg));
     }
   };
 

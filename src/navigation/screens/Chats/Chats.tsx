@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
-import { View, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, RefreshControl, TextInput, Image } from "react-native";
+import { View, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, RefreshControl, TextInput, Image, Platform } from "react-native";
 import { Text } from "@/src/components/ui/text";
 import { useAuth } from "../../../context/AuthContext";
 import { supabase } from "@/src/lib/supabase-client";
@@ -51,11 +51,12 @@ const Chats: React.FC = () => {
     chatsRef.current = chats;
   }, [chats]);
 
-  // Verificar si el usuario actual es proveedor
+  // Verificar si el usuario actual es proveedor y suscribirse a cambios
   useEffect(() => {
     const checkProviderStatus = async () => {
       if (!session?.user?.id) return;
       
+      // Initial check
       const { data: providerById } = await supabase
         .from('providers')
         .select('id')
@@ -64,21 +65,65 @@ const Chats: React.FC = () => {
 
       if (providerById) {
         setIsCurrentUserProvider(true);
-        return;
-      }
+      } else {
+         const { data: providerByProfile } = await supabase
+          .from('providers')
+          .select('id')
+          .eq('profile_id', session.user.id)
+          .maybeSingle();
 
-      const { data: providerByProfile } = await supabase
-        .from('providers')
-        .select('id')
-        .eq('profile_id', session.user.id)
-        .maybeSingle();
-
-      if (providerByProfile) {
-        setIsCurrentUserProvider(true);
+        if (providerByProfile) {
+          setIsCurrentUserProvider(true);
+        }
       }
     };
     
     checkProviderStatus();
+
+    // Subscribe to changes in profiles table to detect when is_provider changes
+    if (session?.user?.id) {
+        const profileSubscription = supabase
+            .channel(`public:profiles:${session.user.id}`)
+            .on(
+                'postgres_changes',
+                {
+                    event: 'UPDATE',
+                    schema: 'public',
+                    table: 'profiles',
+                    filter: `id=eq.${session.user.id}`,
+                },
+                (payload) => {
+                    const newProfile = payload.new as Profile;
+                    if (newProfile.is_provider) {
+                        setIsCurrentUserProvider(true);
+                    }
+                }
+            )
+            .subscribe();
+            
+        // Subscribe to providers table just in case
+        const providerSubscription = supabase
+            .channel(`public:providers:${session.user.id}`)
+            .on(
+                'postgres_changes',
+                {
+                    event: 'INSERT',
+                    schema: 'public',
+                    table: 'providers',
+                    filter: `id=eq.${session.user.id}`,
+                },
+                () => {
+                    setIsCurrentUserProvider(true);
+                }
+            )
+            .subscribe();
+
+        return () => {
+             supabase.removeChannel(profileSubscription);
+             supabase.removeChannel(providerSubscription);
+        }
+    }
+
   }, [session?.user?.id]);
 
   // Función para mostrar fecha relativa
@@ -95,17 +140,19 @@ const Chats: React.FC = () => {
           hour: '2-digit',
           minute: '2-digit',
           timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          hour12: true,
         });
       } else if (diffHours < 48) {
         const timeStr = date.toLocaleTimeString('es-ES', {
           hour: '2-digit',
           minute: '2-digit',
           timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          hour12: true,
         });
         return `Ayer ${timeStr}`;
       } else if (diffHours < 168) {
         const days = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
-        return `${days[date.getDay()]} ${date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`;
+        return `${days[date.getDay()]} ${date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: true })}`;
       } else {
         return date.toLocaleDateString('es-ES', { month: 'short', day: 'numeric' });
       }
@@ -636,6 +683,8 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: 'bold',
     color: '#000',
+    lineHeight: 36, // Apply globally for better rendering on Android too
+    paddingVertical: 5,
   },
   searchRow: {
     flexDirection: 'row',

@@ -46,15 +46,15 @@ export async function registerForPushNotificationsAsync() {
   }
 }
 
-export async function updatePushToken(userId: string, token: string) {
-    if (!userId || !token) return;
-  
-    const { error } = await supabase
-      .from('profiles')
-      .update({ push_token: token })
-      .eq('id', userId);
-  
-    if (error) {
-      console.error('Error updating push token:', error);
-    }
+export async function updatePushToken(userId: string, token: string | null) {
+  if (!userId) return;
+
+  const { error } = await supabase
+    .from('profiles')
+    .update({ push_token: token })
+    .eq('id', userId);
+
+  if (error) {
+    console.error('Error updating push token:', error);
   }
+}

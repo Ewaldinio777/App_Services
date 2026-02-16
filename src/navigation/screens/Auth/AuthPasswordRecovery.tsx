@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Alert, StyleSheet, View, TouchableOpacity, KeyboardAvoidingView, Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "../../../lib/supabase-client";
+import { translateError } from "../../../lib/error-translator";
 import { Button, ButtonText } from "../../../components/ui/button";
 import { Input, InputField } from "../../../components/ui/input";
 import { Text } from "../../../components/ui/text";
@@ -40,7 +41,7 @@ export default function AuthPasswordRecovery() {
         });
 
         if (recoverError) {
-          Alert.alert("Error", recoverError.message);
+          Alert.alert("Error", translateError(recoverError.message));
           return;
         }
       }
@@ -52,7 +53,7 @@ export default function AuthPasswordRecovery() {
       });
 
     } catch (error: any) {
-      Alert.alert("Error", error.message);
+      Alert.alert("Error", translateError(error.message));
     } finally {
       setLoading(false);
     }

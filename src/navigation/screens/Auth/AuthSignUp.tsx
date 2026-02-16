@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import { Alert, StyleSheet, View, Modal, FlatList, TouchableOpacity, Image, KeyboardAvoidingView, Platform, ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "../../../lib/supabase-client";
+import { useAuth } from "../../../context/AuthContext";
+import { translateError } from "../../../lib/error-translator";
 import { Button, ButtonText } from "../../../components/ui/button";
 import { Input, InputField, InputSlot, InputIcon } from "../../../components/ui/input";
 import { Text } from "../../../components/ui/text";
@@ -31,6 +33,7 @@ export default function AuthSignUp() {
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const navigation = useNavigation<NativeStackNavigationProp<AuthStackParamList>>();
+  const { signUpAndSignOut } = useAuth();
 
   const handleState = () => {
     setShowPassword((showState) => {
@@ -57,7 +60,7 @@ export default function AuthSignUp() {
     const {
       data: { session },
       error,
-    } = await supabase.auth.signUp({
+    } = await signUpAndSignOut({
       email: email,
       password: password,
       options: {
@@ -69,11 +72,20 @@ export default function AuthSignUp() {
       },
     });
 
+    setLoading(false);
+
     if (error) {
-      Alert.alert("Error de registro", error.message);
-    } else if (!session) {
-      Alert.alert("¡Casi listo!", "Por favor revisa tu correo para confirmar tu cuenta.");
-      navigation.navigate("Auth");
+      Alert.alert("Error de registro", translateError(error.message));
+    } else {
+      Alert.alert("Registro Exitoso", "Tu cuenta ha sido creada. Por favor inicia sesión.");
+      if (navigation.canGoBack()) {
+        navigation.goBack();
+      } else {
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'Auth' }],
+        });
+      }
     }
   }
 

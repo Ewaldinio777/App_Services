@@ -1,6 +1,8 @@
 import React, { useState } from "react";
-import { Alert, StyleSheet, View, TouchableOpacity, Image, KeyboardAvoidingView, Platform } from "react-native";
+import { Alert, StyleSheet, View, TouchableOpacity, Image, KeyboardAvoidingView, Platform, ScrollView } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "../../../lib/supabase-client";
+import { translateError } from "../../../lib/error-translator";
 import { Button, ButtonText } from "../../../components/ui/button";
 import { Input, InputField, InputSlot, InputIcon } from "../../../components/ui/input";
 import { Text } from "../../../components/ui/text";
@@ -30,94 +32,98 @@ export default function Auth() {
       password: password,
     });
 
-    if (error) Alert.alert("Error", error.message);
+    if (error) Alert.alert("Error", translateError(error.message));
     setLoading(false);
   }
 
   return (
-    <KeyboardAvoidingView 
-      style={styles.container} 
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-    >
-      <View style={styles.contentContainer}>
-        <View style={styles.logoContainer}>
-          <Image 
-            source={require('../../../../assets/LOGO.png')} 
-            style={styles.logo}
-            resizeMode="contain"
-          />
-        </View>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
+      <KeyboardAvoidingView 
+        style={styles.container} 
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      >
+        <ScrollView contentContainerStyle={styles.scrollContent}>
+          <View style={styles.contentContainer}>
+            <View style={styles.logoContainer}>
+              <Image 
+                source={require('../../../../assets/LOGO.png')} 
+                style={styles.logo}
+                resizeMode="contain"
+              />
+            </View>
 
-        <VStack space="md" style={styles.formContainer}>
-          <Input
-            variant="outline"
-            size="lg"
-            isDisabled={false}
-            isInvalid={false}
-            isReadOnly={false}
-            style={styles.inputWrapper}
-          >
-            <InputField
-              onChangeText={(text) => setEmail(text)}
-              value={email}
-              placeholder="Correo electrónico"
-              autoCapitalize="none"
-              keyboardType="email-address"
-              style={styles.inputField}
-            />
-          </Input>
-          
-          <Input
-            variant="outline"
-            size="lg"
-            isDisabled={false}
-            isInvalid={false}
-            isReadOnly={false}
-            style={styles.inputWrapper}
-          >
-            <InputField
-              onChangeText={(text) => setPassword(text)}
-              value={password}
-              placeholder="Contraseña"
-              secureTextEntry={!showPassword}
-              autoCapitalize="none"
-              style={styles.inputField}
-            />
-            <InputSlot onPress={handleState} style={{ paddingRight: 10 }}>
-              <InputIcon as={showPassword ? EyeIcon : EyeOffIcon} />
-            </InputSlot>
-          </Input>
+            <VStack space="md" style={styles.formContainer}>
+              <Input
+                variant="outline"
+                size="lg"
+                isDisabled={false}
+                isInvalid={false}
+                isReadOnly={false}
+                style={styles.inputWrapper}
+              >
+                <InputField
+                  onChangeText={(text) => setEmail(text)}
+                  value={email}
+                  placeholder="Correo electrónico"
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                  style={styles.inputField}
+                />
+              </Input>
+              
+              <Input
+                variant="outline"
+                size="lg"
+                isDisabled={false}
+                isInvalid={false}
+                isReadOnly={false}
+                style={styles.inputWrapper}
+              >
+                <InputField
+                  onChangeText={(text) => setPassword(text)}
+                  value={password}
+                  placeholder="Contraseña"
+                  secureTextEntry={!showPassword}
+                  autoCapitalize="none"
+                  style={styles.inputField}
+                />
+                <InputSlot onPress={handleState} style={{ paddingRight: 10 }}>
+                  <InputIcon as={showPassword ? EyeIcon : EyeOffIcon} />
+                </InputSlot>
+              </Input>
 
-          <Button 
-            disabled={loading} 
-            onPress={() => signInWithEmail()}
-            size="lg"
-            style={styles.loginButton}
-          >
-            <ButtonText>Iniciar sesión</ButtonText>
-          </Button>
+              <Button 
+                disabled={loading} 
+                onPress={() => signInWithEmail()}
+                size="lg"
+                style={styles.loginButton}
+              >
+                <ButtonText>Iniciar sesión</ButtonText>
+              </Button>
 
-          <TouchableOpacity onPress={() => navigation.navigate("ResetPassword")} style={styles.forgotPasswordContainer}>
-            <Text style={styles.forgotPassword}>
-              ¿Olvidaste tu contraseña?
-            </Text>
-          </TouchableOpacity>
-        </VStack>
-      </View>
+              <TouchableOpacity onPress={() => navigation.navigate("ResetPassword")} style={styles.forgotPasswordContainer}>
+                <Text style={styles.forgotPassword}>
+                  ¿Olvidaste tu contraseña?
+                </Text>
+              </TouchableOpacity>
+            </VStack>
+          </View>
 
-      <View style={styles.footerContainer}>
-        <Button
-          disabled={loading}
-          onPress={() => navigation.navigate("Register")}
-          variant="outline"
-          size="lg"
-          action="primary"
-          style={styles.createAccountButton}
-        >
-          <ButtonText>Crear cuenta nueva</ButtonText>
-        </Button>
-      </View>
-    </KeyboardAvoidingView>
+          <View style={styles.footerContainer}>
+            <Button
+              disabled={loading}
+              onPress={() => navigation.navigate("Register")}
+              variant="outline"
+              size="lg"
+              action="primary"
+              style={styles.createAccountButton}
+            >
+              <ButtonText>Crear cuenta nueva</ButtonText>
+            </Button>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
@@ -125,7 +131,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
+  },
+  scrollContent: {
+    flexGrow: 1,
     padding: 16,
+    justifyContent: 'center',
   },
   contentContainer: {
     flex: 1,
@@ -166,7 +176,6 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   footerContainer: {
-    paddingBottom: 40,
     width: '100%',
   },
   createAccountButton: {

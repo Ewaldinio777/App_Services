@@ -451,6 +451,8 @@ const styles = StyleSheet.create({
     fontSize: 24, // Larger
     fontWeight: '900', // Bolder
     color: '#000',
+    lineHeight: 32, // Apply globally
+    paddingVertical: 5, // Apply globally to prevent clipping
   },
   headerRight: {
     alignItems: 'flex-end',

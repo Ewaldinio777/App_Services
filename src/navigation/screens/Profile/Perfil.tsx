@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { View, ScrollView, StyleSheet, TouchableOpacity, TextInput, Alert, ActivityIndicator, Image } from "react-native";
+import { View, ScrollView, StyleSheet, TouchableOpacity, TextInput, Alert, ActivityIndicator, Image, Platform } from "react-native";
 import { Text } from "@/src/components/ui/text";
 import { useAuth } from "../../../context/AuthContext";
 import { supabase } from "@/src/lib/supabase-client";
@@ -96,6 +96,72 @@ const Perfil: React.FC = () => {
       loadProfile();
     }
   }, [session]);
+
+  // Real-time subscription for profile and provider updates
+  useEffect(() => {
+    if (!session?.user?.id) return;
+
+    // Listen for changes in the profiles table (e.g. is_provider becoming true)
+    const profilesSubscription = supabase
+      .channel(`profile_updates:${session.user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'profiles',
+          filter: `id=eq.${session.user.id}`,
+        },
+        (payload) => {
+          if (payload.new) {
+            console.log("Profile updated:", payload.new);
+            const updatedProfile = payload.new as Profile;
+            setProfile(updatedProfile);
+            setFullName(updatedProfile.full_name || "");
+            
+            // If the user just became a provider, we might need to fetch provider data
+            // although the provider data might come in a separate event or query
+            if (updatedProfile.is_provider) {
+               // Optionally trigger a reload of everything to be safe
+               loadProfile();
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    // Listen for changes in the providers table
+    // (UPDATES for rating/description, INSERTS for new providers)
+    const providerSubscription = supabase
+      .channel(`provider_updates:${session.user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*', // Listen to INSERT and UPDATE
+          schema: 'public',
+          table: 'providers',
+          filter: `id=eq.${session.user.id}`,
+        },
+        (payload) => {
+          console.log("Provider change received:", payload);
+            if (payload.new) {
+                const updatedProvider = payload.new as Provider;
+                setProviderData(prev => prev ? { ...prev, ...updatedProvider } : updatedProvider);
+                
+                // If we receive a provider update/insert but don't think we are a provider yet, refresh profile
+                if (!profile?.is_provider) {
+                  loadProfile();
+                }
+            }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(profilesSubscription);
+      supabase.removeChannel(providerSubscription);
+    };
+  }, [session?.user?.id, profile?.is_provider]);
 
   const loadProfile = async () => {
     try {
@@ -205,7 +271,7 @@ const Perfil: React.FC = () => {
         </View>
         {profile?.is_provider ? (
           <View style={{ alignItems: 'center' }}>
-            <Text style={{ fontSize: 24, fontWeight: 'bold', color: '#000', marginBottom: 4 }}>
+            <Text style={styles.userName}>
                 {profile?.full_name || "Usuario"}
             </Text>
             {providerData?.specialization && providerData.specialization.length > 0 && (
@@ -224,7 +290,7 @@ const Perfil: React.FC = () => {
             </View>
           </View>
         ) : (
-          <Text style={{ fontSize: 24, fontWeight: 'bold', color: '#000', marginBottom: 4 }}>
+          <Text style={styles.userName}>
             {profile?.full_name || "Usuario"}
           </Text>
         )}
@@ -406,6 +472,14 @@ const styles = StyleSheet.create({
     padding: 6,
     borderWidth: 2,
     borderColor: '#fff',
+  },
+  userName: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#000',
+    marginBottom: 4,
+    lineHeight: 32, // Apply globally
+    paddingVertical: 4, // Apply globally
   },
   email: {
     fontSize: 16,

@@ -1,10 +1,13 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { Session } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase-client";
+import { updatePushToken } from "../lib/push-notifications"; // Import helper
+
 
 type AuthContextType = {
   session: Session | null;
   logout: () => Promise<void>;
+  signUpAndSignOut: (params: any) => Promise<any>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -13,6 +16,7 @@ export const AuthProvider: React.FC<{
   children: React.ReactNode;
 }> = ({ children }) => {
   const [session, setSession] = useState<Session | null>(null);
+  const ignoreAuthUpdate = React.useRef(false);
 
   useEffect(() => {
     // get initial session
@@ -25,7 +29,9 @@ export const AuthProvider: React.FC<{
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
       console.log("AuthContext: onAuthStateChange", event, session);
-      setSession(session ?? null);
+      if (!ignoreAuthUpdate.current) {
+        setSession(session ?? null);
+      }
     });
 
     return () => {
@@ -36,6 +42,11 @@ export const AuthProvider: React.FC<{
   }, []);
 
   const logout = async () => {
+    // Clear push token before signing out
+    if (session?.user?.id) {
+      await updatePushToken(session.user.id, null);
+    }
+
     const { error } = await supabase.auth.signOut();
     if (error) {
       if (error.message === "Auth session missing!") {
@@ -46,8 +57,26 @@ export const AuthProvider: React.FC<{
     }
   };
 
+  const signUpAndSignOut = async (params: any) => {
+    try {
+      ignoreAuthUpdate.current = true;
+      const result = await supabase.auth.signUp(params);
+      
+      if (result.data.session) {
+        // Automatically sign out if session was created
+        await supabase.auth.signOut();
+      }
+      return result;
+    } finally {
+      // Re-enable auth updates after a short delay to ensure signOut is processed
+      setTimeout(() => {
+        ignoreAuthUpdate.current = false;
+      }, 500); 
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ session, logout }}>
+    <AuthContext.Provider value={{ session, logout, signUpAndSignOut }}>
       {children}
     </AuthContext.Provider>
   );
