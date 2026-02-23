@@ -307,6 +307,16 @@ const Perfil: React.FC = () => {
                 </View>
 
                 <View style={styles.fieldContainer}>
+                  <Text style={styles.label}>Documento</Text>
+                  <Text style={styles.value}>{providerData?.id_number || "No especificado"}</Text>
+                </View>
+
+                <View style={styles.fieldContainer}>
+                  <Text style={styles.label}>Estado</Text>
+                  <Text style={styles.value}>{profile?.state || "No especificado"}</Text>
+                </View>
+
+                <View style={styles.fieldContainer}>
                     <Text style={styles.label}>Descripción</Text>
                     {editing ? (
                         <TextInput
@@ -354,6 +364,11 @@ const Perfil: React.FC = () => {
                 <View style={styles.fieldContainer}>
                   <Text style={styles.label}>Email</Text>
                   <Text style={styles.value}>{session.user.email}</Text>
+                </View>
+
+                  <View style={styles.fieldContainer}>
+                  <Text style={styles.label}>Estado</Text>
+                  <Text style={styles.value}>{profile?.state || "No especificado"}</Text>
                 </View>
             </>
         )}

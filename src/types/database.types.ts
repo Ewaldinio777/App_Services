@@ -7,6 +7,7 @@ export interface Profile {
   phone?: string;
   is_provider: boolean;
   created_at: string;
+  document_number?: string; 
 }
 
 export interface Provider {
